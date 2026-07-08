@@ -225,3 +225,46 @@ Kurucunun vizyonu (2026-07-08): telefon değil, **planlı tarayıcı-içi görü
 3. Şablon stack son kararı: Astro (içerik siteleri için hızlı/ucuz) vs Next.js (Kareya-photo PRD'siyle ortaklık). Öneri: **Astro** — statik çıktı, CF Pages'te bedava ölçek.
 4. KVKK: çağrı kaydı bildirimi + müşteri verisi işleme envanteri.
 5. Fotoğrafçı SaaS PRD'si (prds/kareya.md) isimsiz-park — 6 ay sonra yeniden değerlendir.
+
+---
+
+## 10. Araştırma özeti (kendi kendine yeten kayıt — 2026-07-08)
+
+**Global:** DFY sesli-intake ajans konsepti dünyada yok. En yakınlar: B12 ($199-399/ay DFY-hibrit, yıllardır durgun), Wegic (chat "AI ekibi", 2.5M kullanıcı), 10Web agentic builder, Durable. Sesli intake hukuk/ev hizmetlerinde olgun ($0.07-0.15/dk) ama üretimle kimse birleştirmemiş. a16z 2026 fikir listelerinde "AI website builds (not a website builder)" kelimesi kelimesine var; Sequoia "sell the work" tezi fonlanıyor ama yüksek-ACV verticallerde (Crosby hukuk $60M B). Web sitesi tek-seferlik artifact = VC ACV elemesine takılır → **global VC-scale kapı dar; TR productized servis penceresi açık.** Lovable ($400-500M ARR) alttan DIY fiyat baskısı yapıyor.
+**builder.ai dersleri** ($445M → 2025 iflas): otomasyon %'sinde dürüstlük, sınırlı scope, revizyon sınırı sözleşmede, "AI builds your app" cümlesi yatırımcıda yanık.
+**TR:** kurumsal site ₺5-65K + bakım alışkanlığı ₺500-10K/ay mevcut; 1M+ websitesiz işletme; sesli-intake yapan yok. Türkçe voice AI: yapılandırılmış 10-15 dk görüşme için hazır, 30 dk serbest form kanıtsız. Trust köprüsü: AI çalışır, insan (WhatsApp) kapatır/tahsil eder. KVKK: görüşme kaydı açık onayla.
+**Ekonomi:** ses ₺100-200/görüşme, AI üretim $10-50/site — önemsiz. **İnsan kuyruğu (revizyon döngüleri, mutsuz müşteri) tüm maliyet yapısıdır** → ChangeOps + tur sınırı bu yüzden mimari çekirdekte.
+
+## 11. GTM — ilk müşteriler (sıfır CAC)
+
+1. **Müşteri 0:** çocuk doktoru (hediye) → arketip #1 doğar + portföy parçası + NextLabz içeriği
+2. **Müşteri 1-5:** mevcut hosting müşterileri (yenileme/upgrade teklifi) + arkadaşın ajans ağı
+3. **Müşteri 6-10:** ilk müşterilerin referansları + NextLabz build-in-public izleyicisi
+4. Ölçekli kanal (sonra): "1 haftada ajans kalitesinde site" konumu, Armut/Bionluk değil — kendi markası + içerik
+
+## 12. Non-goals taslağı (İsmail onaylayacak)
+
+Kareya YAPMAZ: e-ticaret siteleri · özel web uygulamaları/SaaS geliştirme · logo/kurumsal kimlik tasarımı (hazır logo alınır; yoksa basit wordmark üretimi sınırlı hizmet) · SEO retainer/reklam yönetimi · mobil uygulama. Şüphede kural: **otomasyon yüzdesini düşürecek her iş = hayır** (OUT_OF_SCOPE op'una güven).
+
+## 13. Çalışma seansları backlog'u (build öncesi/paralel)
+
+| Seans | Çıktı | Not |
+|---|---|---|
+| Fiyat matrisi çıkarma | arketip × sayfa × feature → ₺ tablosu + teklif şablonu | İsmail'in 500-site sezgisi kurallara dökülür — İLK SEANS |
+| Non-goals onayı | §12 kesinleşir | 15 dk |
+| İlk-10-müşteri listesi | isim + sıra + mesaj taslağı | bir akşam |
+| Hosting migration kararı | eski PHP/.NET siteler yeni stack'e taşınacak mı, takvimi | gelir + test alanı vs legacy yük |
+| Brief JSON + Site JSON şema v1 | iki sözleşme dosyası | build session'ın ilk işi |
+| Entity/fatura | hangi tüzel yapı kesecek | ilk ücretli müşteriden önce |
+
+## 14. Build session kurulum notları
+
+- **Subagents/skills bu repoda kurulacak** (yeni session'da): önerilen özel agent'lar — `schema-guardian` (Brief/Site JSON değişikliklerini şemalarla tutarlı tutar), `component-kit-reviewer` (yeni section'ların kit konvansiyonlarına uyumu), `qa-runner` (Playwright + vision görsel QA orkestrasyonu). Genel kod-review/TDD için ECC plugin eklenebilir — ama GateGuard kapalı kurulmalı (perim.net deneyimi).
+- **Geliştirme modeli:** ana build oturumları Opus 4.8 veya Fable 5 (en güçlü mevcut); toplu/tekrarlı işler (section varyantı üretimi, içerik doldurma) Sonnet 4.6 yeterli ve ucuz.
+- **Üründeki modeller (runtime, ayrı karar):** model routing §8.1 — parse/patch işleri Haiku-sınıfı, copy/art-direction Sonnet-sınıfı, görsel QA vision. Site başına <$10 hedefi bu routing ile tutar.
+
+## 15. Karar kaydı
+
+- **2026-07-08: GO kararı.** Kareya-ajans = indie ana proje. Foto-SaaS derin park (PRD perim.net'te). Agri veri turu pasif devam (besidefteri feedback'leri birikiyor). NextLabz haftalık ritim korunur; bu build kanalın içerik serisi.
+- kareya.app alınmış; kareya.com.tr + TÜRKPATENT sınıf 42 yapılacak.
+- WhatsApp Business API başvurusu erken tetiklenecek (Meta 1-2 hafta).
