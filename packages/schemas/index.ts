@@ -1,10 +1,11 @@
-// Kareya paylaşılan sözleşmeler (Brief JSON / Site JSON / ChangeOps).
-// Portal, renderer/component-kit ve agent worker'ları buradan tek kaynak
-// olarak tüketir. Gerçek şemalar (zod validasyon) sonraki ticket'larda gelir.
+// Kareya shared contracts (Brief JSON / Site JSON / ChangeOps).
+// Consumed as the single source of truth by the portal, the
+// renderer/component-kit, and the agent workers. Real schemas (zod
+// validation) arrive in later tickets.
 
 export const SCHEMAS_VERSION = "0.0.0";
 
-/** Görüşme odası canlı brief paneli taslağı (KAR-15 stub). */
+/** Live brief-panel draft in the meeting room (KAR-15 stub). */
 export type BriefDraft = {
   businessName?: string;
   sector?: string;

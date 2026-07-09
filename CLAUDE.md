@@ -63,7 +63,7 @@ Kareya, Linear tabanlı **modus** operating model'i ile geliştirilir. **Altın 
 ## Konvansiyonlar
 
 - **Branch:** `<type>/kar-<n>-<kisa-baslik>` (örn. `feature/kar-12-hero-section`). **Commit:** Conventional Commits (İngilizce). **PR:** body'de `Fixes KAR-x`. Detay: `docs/process/git-conventions.md`.
-- **Dil:** ürün/iletişim/dokümantasyon **Türkçe**; kod, değişken, dosya, commit mesajı **İngilizce**.
+- **Dil:** kod, yorum, kod mesajları/**API**, teknik doküman (README, ADR), commit/PR, değişken/dosya adı **İngilizce** (best practice). Yalnızca **son-kullanıcıya dönük ürün içeriği** (görüşme odası/portal UI, KVKK metni, pazarlama copy, üretilen siteler) **Türkçe**. Strateji/operating dokümanları (`docs/DESIGN.md`, `docs/process/`, `.claude/agents/`) şimdilik Türkçe.
 
 ## Repo haritası
 
