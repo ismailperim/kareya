@@ -8,6 +8,9 @@ const nextConfig = {
 
   // Workspace kökünü repoya sabitle (home dizinindeki başıboş lockfile'ı yok say).
   outputFileTracingRoot: import.meta.dirname,
+
+  // Workspace paketlerini Next transpile etsin (monorepo).
+  transpilePackages: ["@kareya/schemas"],
 };
 
 export default nextConfig;
