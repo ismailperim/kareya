@@ -8,7 +8,7 @@ Bu repo hem Kareya'yı geliştiren **modus** operating model'ini (Linear + subag
 
 - **Next.js** (App Router, TS) — portal + görüşme odası
 - **Tailwind CSS v4**
-- **Supabase** (Postgres + RLS + Auth)
+- **Neon** (serverless Postgres) — dev DB. _Auth ve Storage ileride ayrı kararlaştırılır (Neon saf Postgres)._
 - **Cloudflare** deploy — Workers, [OpenNext](https://opennext.js.org/cloudflare) adapter (`@opennextjs/cloudflare`)
 
 > Üretilen müşteri siteleri ayrı bir statik-export render hattıyla üretilir (component-kit — sonraki ticket'lar). Bu app dinamiktir (Cloudflare Workers).
@@ -23,7 +23,7 @@ Bu repo hem Kareya'yı geliştiren **modus** operating model'ini (Linear + subag
    ```bash
    cp .env.example .env.local
    ```
-   Supabase **Project Settings > API**'den `NEXT_PUBLIC_SUPABASE_URL` ve `NEXT_PUBLIC_SUPABASE_ANON_KEY` değerlerini doldur.
+   Neon **Console > Connection Details**'ten (pooled) connection string'i `DATABASE_URL`'e koy. Bu bir secret'tır — commit etme.
 3. Geliştirme sunucusu:
    ```bash
    npm run dev
@@ -35,7 +35,7 @@ Bu repo hem Kareya'yı geliştiren **modus** operating model'ini (Linear + subag
 - Standart build: `npm run build`
 - Cloudflare önizleme (lokal Workers runtime): `npm run preview`
 - Cloudflare deploy: `npm run deploy` (`wrangler login` sonrası) — OpenNext build + `wrangler deploy`.
-- Alternatif: CF **Workers Builds** ile GitHub repo bağlanır, otomatik build/deploy. Env değişkenleri (`NEXT_PUBLIC_SUPABASE_*`) CF proje ayarlarına girilir; lokal için `.dev.vars`.
+- Alternatif: CF **Workers Builds** ile GitHub repo bağlanır, otomatik build/deploy. `DATABASE_URL` CF proje ayarlarına secret olarak girilir; lokal Workers runtime için `.dev.vars`.
 
 ## Çalışma modeli
 
