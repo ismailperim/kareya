@@ -2,6 +2,9 @@
 
 import { useCallback, useState } from "react";
 
+import type { AgentMode, MeetingStatus } from "@/lib/meeting/types";
+import { useMeetingSession } from "./useMeetingSession";
+
 type Step = "consent" | "mic" | "room";
 type MicStatus = "idle" | "requesting" | "granted" | "denied";
 
@@ -123,20 +126,22 @@ function MicStep({
   );
 }
 
-// Room layout: voice panel (KAR-14 placeholder) + brief panel (KAR-15 stub).
+// Room layout: live voice panel (KAR-14) + brief panel (KAR-15 stub).
 function RoomView({ token }: { token: string }) {
+  const { status, mode, error, voiceConfigured, connect, disconnect } =
+    useMeetingSession(token);
+
   return (
     <div className="w-full">
       <div className="grid gap-4 md:grid-cols-2">
-        <section className="flex min-h-[320px] flex-col rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold">Görüşme</h2>
-          <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-3 text-center text-gray-500">
-            <div className="h-16 w-16 animate-pulse rounded-full bg-blue-100" />
-            <p className="text-sm">
-              Ses bağlantısı bir sonraki adımda eklenecek (KAR-14).
-            </p>
-          </div>
-        </section>
+        <VoicePanel
+          status={status}
+          mode={mode}
+          error={error}
+          voiceConfigured={voiceConfigured}
+          onConnect={connect}
+          onDisconnect={disconnect}
+        />
 
         <section className="min-h-[320px] rounded-2xl bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold">Brief</h2>
@@ -161,6 +166,91 @@ function RoomView({ token }: { token: string }) {
         Oturum: {token.slice(0, 8)}…
       </p>
     </div>
+  );
+}
+
+// Live voice panel: connect/disconnect + connection status + talk indicator.
+// Falls back to a "not configured yet" state when the server has no voice env.
+function VoicePanel({
+  status,
+  mode,
+  error,
+  voiceConfigured,
+  onConnect,
+  onDisconnect,
+}: {
+  status: MeetingStatus;
+  mode: AgentMode | null;
+  error: string | null;
+  voiceConfigured: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  const connected = status === "connected";
+  const connecting = status === "connecting";
+
+  return (
+    <section className="flex min-h-[320px] flex-col rounded-2xl bg-white p-6 shadow-sm">
+      <h2 className="text-lg font-semibold">Görüşme</h2>
+      <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-4 text-center">
+        <div
+          className={[
+            "flex h-20 w-20 items-center justify-center rounded-full transition",
+            connected && mode === "speaking"
+              ? "animate-pulse bg-blue-500"
+              : connected
+                ? "bg-blue-100"
+                : connecting
+                  ? "animate-pulse bg-gray-200"
+                  : "bg-gray-100",
+          ].join(" ")}
+        >
+          <span className="text-2xl">🎙️</span>
+        </div>
+
+        {!voiceConfigured ? (
+          <p className="max-w-xs text-sm text-gray-500">
+            Sesli görüşme henüz yapılandırılmadı. Kısa süre içinde aktif olacak.
+          </p>
+        ) : connected ? (
+          <p className="text-sm font-medium text-gray-700">
+            {mode === "speaking" ? "Ajan konuşuyor…" : "Sizi dinliyorum…"}
+          </p>
+        ) : connecting ? (
+          <p className="text-sm text-gray-500">Bağlanıyor…</p>
+        ) : (
+          <p className="max-w-xs text-sm text-gray-500">
+            Hazır olduğunuzda görüşmeyi başlatın; sesli asistan sizi karşılayacak.
+          </p>
+        )}
+
+        {error && (
+          <p className="max-w-xs rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            {error}
+          </p>
+        )}
+
+        {voiceConfigured &&
+          (connected ? (
+            <button
+              type="button"
+              onClick={onDisconnect}
+              className="rounded-xl bg-gray-900 px-6 py-3 font-medium text-white transition hover:bg-gray-800"
+            >
+              Görüşmeyi bitir
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onConnect}
+              disabled={connecting}
+              className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
+            >
+              {status === "error" ? "Tekrar dene" : "Görüşmeyi başlat"}
+            </button>
+          ))}
+      </div>
+    </section>
   );
 }
 

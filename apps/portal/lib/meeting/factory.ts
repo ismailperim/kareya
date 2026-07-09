@@ -1,0 +1,22 @@
+import type {
+  MeetingAuth,
+  MeetingSession,
+  MeetingSessionCallbacks,
+} from "./types";
+
+// Picks the adapter for the credential's provider. The vendor SDK is loaded
+// via dynamic import so it stays out of the SSR/initial bundle and is only
+// pulled in when the user actually connects (a client-side user gesture).
+export async function createMeetingSession(
+  auth: MeetingAuth,
+  callbacks: MeetingSessionCallbacks,
+): Promise<MeetingSession> {
+  switch (auth.provider) {
+    case "elevenlabs": {
+      const { ElevenLabsSession } = await import("./elevenlabs");
+      return new ElevenLabsSession(auth.conversationToken, callbacks);
+    }
+    default:
+      throw new Error(`Unknown voice provider: ${(auth as MeetingAuth).provider}`);
+  }
+}
