@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, isDbConfigured } from "@/lib/db";
+import { SCHEMAS_VERSION } from "@kareya/schemas";
 
 export async function GET() {
   if (!isDbConfigured) {
@@ -14,7 +15,12 @@ export async function GET() {
     const sql = getDb();
     // Bağlantı kanıtı: gerçek bir sorgu çalıştır.
     const rows = await sql`select now() as now`;
-    return NextResponse.json({ ok: true, db: "connected", now: rows[0]?.now });
+    return NextResponse.json({
+      ok: true,
+      db: "connected",
+      now: rows[0]?.now,
+      schemas: SCHEMAS_VERSION,
+    });
   } catch (err) {
     return NextResponse.json(
       {

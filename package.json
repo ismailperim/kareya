@@ -2,6 +2,7 @@
   "name": "kareya",
   "version": "0.1.0",
   "private": true,
+  "workspaces": ["packages/*"],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,6 +13,7 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
+    "@kareya/schemas": "*",
     "@neondatabase/serverless": "^1.1.0",
     "next": "^15.5.18",
     "react": "^19.0.0",
