@@ -15,9 +15,11 @@ Bu repo hem Kareya'yı geliştiren **modus** operating model'ini (Linear + subag
 
 ## Yapı (npm workspaces)
 
-- `app/`, `lib/` — portal app (repo kökünde; deployable, CF Worker `kareya-portal`).
+- `apps/portal/` — portal app (Next.js): pazarlama + müşteri portalı + görüşme odası. Deployable → CF Worker `kareya-portal`.
 - `packages/schemas/` — paylaşılan sözleşmeler (`@kareya/schemas`): Brief/Site JSON/ChangeOps.
-- İkinci deployable (workers / component-kit) gelince `apps/*`'a terfi edilir.
+- İleride kardeşler: `apps/web` (pazarlama sitesi), `apps/workers` (agent runtime), `packages/component-kit` (renderer).
+
+Root'tan `npm run dev|build|preview|deploy` komutları `@kareya/portal`'a delege eder.
 
 ## Kurulum
 
@@ -27,7 +29,7 @@ Bu repo hem Kareya'yı geliştiren **modus** operating model'ini (Linear + subag
    ```
 2. Ortam değişkenleri — `.env.example`'ı kopyala:
    ```bash
-   cp .env.example .env.local
+   cp apps/portal/.env.example apps/portal/.env.local
    ```
    Neon **Console > Connection Details**'ten (pooled) connection string'i `DATABASE_URL`'e koy. Bu bir secret'tır — commit etme.
 3. Geliştirme sunucusu:
@@ -41,7 +43,7 @@ Bu repo hem Kareya'yı geliştiren **modus** operating model'ini (Linear + subag
 - Standart build: `npm run build`
 - Cloudflare önizleme (lokal Workers runtime): `npm run preview`
 - Cloudflare deploy: `npm run deploy` (`wrangler login` sonrası) — OpenNext build + `wrangler deploy`.
-- Alternatif: CF **Workers Builds** ile GitHub repo bağlanır, otomatik build/deploy. `DATABASE_URL` CF proje ayarlarına secret olarak girilir; lokal Workers runtime için `.dev.vars`.
+- CF **Workers Builds** (git-connected): GitHub repo'yu bağla → **Root directory: `apps/portal`**, build command `npx opennextjs-cloudflare build`, Worker adı `kareya-portal`. `DATABASE_URL` proje ayarlarına secret olarak girilir; lokal Workers runtime için `apps/portal/.dev.vars`.
 
 ## Çalışma modeli
 
