@@ -1,0 +1,186 @@
+"use client";
+
+import { useCallback, useState } from "react";
+
+type Step = "consent" | "mic" | "room";
+type MicStatus = "idle" | "requesting" | "granted" | "denied";
+
+export function MeetingRoom({ token }: { token: string }) {
+  const [step, setStep] = useState<Step>("consent");
+  const [micStatus, setMicStatus] = useState<MicStatus>("idle");
+  const [micError, setMicError] = useState<string | null>(null);
+
+  const requestMic = useCallback(async () => {
+    setMicStatus("requesting");
+    setMicError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Permission granted; stop the stream for now — the audio session is
+      // set up in KAR-14 behind the MeetingSession abstraction.
+      stream.getTracks().forEach((t) => t.stop());
+      setMicStatus("granted");
+      setStep("room");
+    } catch (err) {
+      setMicStatus("denied");
+      setMicError(
+        err instanceof DOMException && err.name === "NotAllowedError"
+          ? "Mikrofon izni reddedildi. Görüşme için tarayıcı ayarlarından izin verin."
+          : "Mikrofona erişilemedi. Cihaz ve bağlantıyı kontrol edin.",
+      );
+    }
+  }, []);
+
+  return (
+    <div className="relative min-h-screen bg-gray-50">
+      <HumanHandoffButton />
+      <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center p-6">
+        {step === "consent" && <ConsentStep onAccept={() => setStep("mic")} />}
+        {step === "mic" && (
+          <MicStep status={micStatus} error={micError} onRequest={requestMic} />
+        )}
+        {step === "room" && <RoomView token={token} />}
+      </div>
+    </div>
+  );
+}
+
+// KVKK consent gate — must be accepted before entering the room.
+function ConsentStep({ onAccept }: { onAccept: () => void }) {
+  const [checked, setChecked] = useState(false);
+  return (
+    <section className="w-full rounded-2xl bg-white p-8 shadow-sm">
+      <h1 className="text-2xl font-semibold">Görüşme Odası</h1>
+      <p className="mt-2 text-gray-600">
+        Görüşmeye başlamadan önce onayınız gerekiyor.
+      </p>
+      <div className="mt-6 space-y-3 rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
+        <p>
+          Bu görüşme, talebinizi doğru hazırlayabilmek için{" "}
+          <strong>ses kaydı ve metne dökme (transkript)</strong> yoluyla işlenir.
+          Kayıtlar yalnızca bu amaçla kullanılır.
+        </p>
+        <p>
+          Devam ederek KVKK kapsamında görüşmenin kaydedilmesini ve işlenmesini
+          kabul etmiş olursunuz. Dilediğiniz an “İnsanla devam et” ile temsilciye
+          bağlanabilirsiniz.
+        </p>
+      </div>
+      <label className="mt-4 flex items-start gap-3 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => setChecked(e.target.checked)}
+          className="mt-1"
+        />
+        <span>Görüşmenin kaydedilmesini ve işlenmesini onaylıyorum.</span>
+      </label>
+      <button
+        type="button"
+        disabled={!checked}
+        onClick={onAccept}
+        className="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Onaylıyorum ve devam et
+      </button>
+    </section>
+  );
+}
+
+// Microphone permission request with granted/denied handling.
+function MicStep({
+  status,
+  error,
+  onRequest,
+}: {
+  status: MicStatus;
+  error: string | null;
+  onRequest: () => void;
+}) {
+  return (
+    <section className="w-full rounded-2xl bg-white p-8 text-center shadow-sm">
+      <h2 className="text-xl font-semibold">Mikrofon izni</h2>
+      <p className="mt-2 text-gray-600">
+        Sesli görüşme için mikrofonunuza erişim gerekiyor.
+      </p>
+      {error && (
+        <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={onRequest}
+        disabled={status === "requesting"}
+        className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition disabled:opacity-40"
+      >
+        {status === "requesting"
+          ? "İzin isteniyor…"
+          : status === "denied"
+            ? "Tekrar dene"
+            : "Mikrofona izin ver"}
+      </button>
+    </section>
+  );
+}
+
+// Room layout: voice panel (KAR-14 placeholder) + brief panel (KAR-15 stub).
+function RoomView({ token }: { token: string }) {
+  return (
+    <div className="w-full">
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="flex min-h-[320px] flex-col rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold">Görüşme</h2>
+          <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-3 text-center text-gray-500">
+            <div className="h-16 w-16 animate-pulse rounded-full bg-blue-100" />
+            <p className="text-sm">
+              Ses bağlantısı bir sonraki adımda eklenecek (KAR-14).
+            </p>
+          </div>
+        </section>
+
+        <section className="min-h-[320px] rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold">Brief</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Görüşme sırasında notlarınız burada belirir.
+          </p>
+          <dl className="mt-4 space-y-3">
+            {["İşletme adı", "Sektör", "Logo var mı?", "Referans site"].map(
+              (label) => (
+                <div key={label} className="rounded-lg bg-gray-50 px-3 py-2">
+                  <dt className="text-xs uppercase tracking-wide text-gray-400">
+                    {label}
+                  </dt>
+                  <dd className="text-sm text-gray-300">—</dd>
+                </div>
+              ),
+            )}
+          </dl>
+        </section>
+      </div>
+      <p className="mt-4 text-center text-xs text-gray-400">
+        Oturum: {token.slice(0, 8)}…
+      </p>
+    </div>
+  );
+}
+
+// Always-visible escalation to a human (placeholder action for now).
+function HumanHandoffButton() {
+  const [requested, setRequested] = useState(false);
+  return (
+    <div className="fixed right-4 top-4 z-10 flex flex-col items-end gap-2">
+      <button
+        type="button"
+        onClick={() => setRequested(true)}
+        className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+      >
+        İnsanla devam et
+      </button>
+      {requested && (
+        <span className="max-w-[220px] rounded-lg bg-gray-900 px-3 py-1.5 text-right text-xs text-white">
+          Talebiniz alındı — bir temsilci sizinle iletişime geçecek (yakında).
+        </span>
+      )}
+    </div>
+  );
+}
