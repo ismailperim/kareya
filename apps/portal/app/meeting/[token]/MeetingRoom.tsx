@@ -126,9 +126,9 @@ function MicStep({
   );
 }
 
-// Room layout: live voice panel (KAR-14) + brief panel (KAR-15 stub).
+// Room layout: live voice panel (KAR-14) + live brief panel (KAR-15).
 function RoomView({ token }: { token: string }) {
-  const { status, mode, error, voiceConfigured, connect, disconnect } =
+  const { status, mode, brief, error, voiceConfigured, connect, disconnect } =
     useMeetingSession(token);
 
   return (
@@ -143,29 +143,75 @@ function RoomView({ token }: { token: string }) {
           onDisconnect={disconnect}
         />
 
-        <section className="min-h-[320px] rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold">Brief</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Görüşme sırasında notlarınız burada belirir.
-          </p>
-          <dl className="mt-4 space-y-3">
-            {["İşletme adı", "Sektör", "Logo var mı?", "Referans site"].map(
-              (label) => (
-                <div key={label} className="rounded-lg bg-gray-50 px-3 py-2">
-                  <dt className="text-xs uppercase tracking-wide text-gray-400">
-                    {label}
-                  </dt>
-                  <dd className="text-sm text-gray-300">—</dd>
-                </div>
-              ),
-            )}
-          </dl>
-        </section>
+        <BriefPanel brief={brief} />
       </div>
       <p className="mt-4 text-center text-xs text-gray-400">
         Oturum: {token.slice(0, 8)}…
       </p>
     </div>
+  );
+}
+
+// The fields the agent fills via update_brief(field, value), in ask order.
+// `field` values must match the agent's system prompt (see the ElevenLabs agent).
+const BRIEF_FIELDS: { key: string; label: string }[] = [
+  { key: "businessName", label: "İşletme adı" },
+  { key: "sector", label: "Sektör" },
+  { key: "hasLogo", label: "Logo var mı?" },
+  { key: "referenceSite", label: "Referans site" },
+];
+
+// Live brief panel — the "notlarımı alıyor" trust UX. Each field fills in real
+// time as the agent calls update_brief. Confirmation is a placeholder for now
+// (Brief JSON finalization + validation is a later schema-guardian ticket).
+function BriefPanel({ brief }: { brief: Record<string, string> }) {
+  const filled = BRIEF_FIELDS.filter((f) => brief[f.key]).length;
+  const allFilled = filled === BRIEF_FIELDS.length;
+
+  return (
+    <section className="flex min-h-[320px] flex-col rounded-2xl bg-white p-6 shadow-sm">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold">Brief</h2>
+        <span className="text-xs text-gray-400">
+          {filled}/{BRIEF_FIELDS.length}
+        </span>
+      </div>
+      <p className="mt-1 text-sm text-gray-500">
+        Görüşme sırasında notlarınız burada belirir.
+      </p>
+      <dl className="mt-4 space-y-3">
+        {BRIEF_FIELDS.map(({ key, label }) => {
+          const value = brief[key];
+          return (
+            <div
+              key={key}
+              className={[
+                "rounded-lg px-3 py-2 transition-colors",
+                value ? "bg-blue-50" : "bg-gray-50",
+              ].join(" ")}
+            >
+              <dt className="text-xs uppercase tracking-wide text-gray-400">
+                {label}
+              </dt>
+              <dd
+                className={
+                  value ? "text-sm font-medium text-gray-800" : "text-sm text-gray-300"
+                }
+              >
+                {value || "—"}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+      <button
+        type="button"
+        disabled={!allFilled}
+        className="mt-auto w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {allFilled ? "Brief'i onayla" : "Görüşme sürüyor…"}
+      </button>
+    </section>
   );
 }
 
