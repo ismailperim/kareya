@@ -1,27 +1,25 @@
 import { NextResponse } from "next/server";
-import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getDb, isDbConfigured } from "@/lib/db";
 
 export async function GET() {
-  if (!isSupabaseConfigured) {
+  if (!isDbConfigured) {
     return NextResponse.json({
       ok: false,
-      supabase: "unconfigured",
-      hint: ".env.local dosyasını doldurun (bkz. .env.example)",
+      db: "unconfigured",
+      hint: ".env.local dosyasında DATABASE_URL tanımlayın (bkz. .env.example)",
     });
   }
 
   try {
-    const supabase = getSupabase();
-    // Bağlantı kanıtı: client kuruluyor + Supabase Auth uç noktasına erişiliyor.
-    // Gerçek tablo okuması şema ticket'larıyla gelecek.
-    const { error } = await supabase.auth.getSession();
-    if (error) throw error;
-    return NextResponse.json({ ok: true, supabase: "connected" });
+    const sql = getDb();
+    // Bağlantı kanıtı: gerçek bir sorgu çalıştır.
+    const rows = await sql`select now() as now`;
+    return NextResponse.json({ ok: true, db: "connected", now: rows[0]?.now });
   } catch (err) {
     return NextResponse.json(
       {
         ok: false,
-        supabase: "error",
+        db: "error",
         message: err instanceof Error ? err.message : String(err),
       },
       { status: 500 },
