@@ -13,6 +13,12 @@ Bu repo hem Kareya'yı geliştiren **modus** operating model'ini (Linear + subag
 
 > Üretilen müşteri siteleri ayrı bir statik-export render hattıyla üretilir (component-kit — sonraki ticket'lar). Bu app dinamiktir (Cloudflare Workers).
 
+## Yapı (npm workspaces)
+
+- `app/`, `lib/` — portal app (repo kökünde; deployable, CF Worker `kareya-portal`).
+- `packages/schemas/` — paylaşılan sözleşmeler (`@kareya/schemas`): Brief/Site JSON/ChangeOps.
+- İkinci deployable (workers / component-kit) gelince `apps/*`'a terfi edilir.
+
 ## Kurulum
 
 1. Bağımlılıklar:
