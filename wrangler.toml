@@ -1,0 +1,18 @@
+name = "kareya"
+main = ".open-next/worker.js"
+compatibility_date = "2025-03-25"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# Custom domain — portal. Zone kareya.app CF hesabında olmalı (✓).
+# wrangler DNS kaydını + SSL sertifikasını otomatik kurar; hostname'in
+# önceden boş olması gerekir (mevcut kayıt varsa çakışır).
+[[routes]]
+pattern = "portal.kareya.app"
+custom_domain = true
+
+# Not: DATABASE_URL bir SECRET; wrangler.toml'a YAZILMAZ.
+# Prod: `wrangler secret put DATABASE_URL` / dashboard. Lokal: `.dev.vars`.
