@@ -14,5 +14,12 @@ binding = "ASSETS"
 pattern = "portal.kareya.app"
 custom_domain = true
 
-# Note: DATABASE_URL is a SECRET; do NOT put it in wrangler.toml.
-# Prod: `wrangler secret put DATABASE_URL` / dashboard. Local: `.dev.vars`.
+# Non-secret runtime config. The ElevenLabs agent id is an identifier (safe to
+# commit); the API key that authorizes it is a SECRET set separately.
+[vars]
+ELEVENLABS_AGENT_ID = "agent_8201kx3ndd9beap91s6ksacsfvcv"
+
+# SECRETS — never in wrangler.toml. Set in prod via `wrangler secret put <NAME>`
+# or the CF dashboard (Worker > Settings > Variables and Secrets). Local: `.dev.vars`.
+#   DATABASE_URL         (Neon connection string)
+#   ELEVENLABS_API_KEY   (ElevenLabs API key — mints per-session voice tokens)
