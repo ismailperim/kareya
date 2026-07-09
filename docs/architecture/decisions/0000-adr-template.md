@@ -1,26 +1,26 @@
-# ADR-NNNN: <Karar başlığı>
+# ADR-NNNN: <Decision title>
 
-- **Durum:** Önerildi | Kabul edildi | Reddedildi | Yerine geçti (ADR-XXXX)
-- **Tarih:** YYYY-MM-DD
-- **Karar verenler:** <kişiler / roller>
-- **İlgili ticket:** KAR-XXX
+- **Status:** Proposed | Accepted | Rejected | Superseded (ADR-XXXX)
+- **Date:** YYYY-MM-DD
+- **Deciders:** <people / roles>
+- **Related ticket:** KAR-XXX
 
-## Bağlam
+## Context
 
-Hangi problem/ihtiyaç var? Hangi kısıtlar geçerli? Bu kararı neden şimdi vermemiz gerekiyor?
+What problem/need exists? What constraints apply? Why do we need to decide this now?
 
-## Düşünülen seçenekler
+## Options considered
 
-1. **Seçenek A** — kısa açıklama; artı/eksi.
-2. **Seçenek B** — kısa açıklama; artı/eksi.
-3. **Seçenek C** — …
+1. **Option A** — short description; pros/cons.
+2. **Option B** — short description; pros/cons.
+3. **Option C** — …
 
-## Karar
+## Decision
 
-Hangi seçeneği seçtik ve **neden**.
+Which option we chose and **why**.
 
-## Sonuçlar
+## Consequences
 
-- Olumlu: …
-- Olumsuz / takas: …
-- Takip işleri: <ticket'lar>
+- Positive: …
+- Negative / trade-offs: …
+- Follow-ups: <tickets>

@@ -3,15 +3,17 @@ import { neon } from "@neondatabase/serverless";
 const connectionString = process.env.DATABASE_URL;
 
 /**
- * Neon serverless Postgres client (HTTP). Node ve Cloudflare Workers/edge
- * runtime'ında çalışır (TCP gerektirmez). `DATABASE_URL` server-only bir
- * secret'tır — asla client'a sızdırma, asla commit etme.
+ * Neon serverless Postgres client (HTTP). Works in Node and on the
+ * Cloudflare Workers/edge runtime (no TCP required). `DATABASE_URL` is a
+ * server-only secret — never expose it to the client, never commit it.
  *
- * Not: Neon saf Postgres. Auth ve Storage için ayrı çözüm ileride kararlaştırılır.
+ * Note: Neon is plain Postgres. Auth and Storage are decided separately later.
  */
 export function getDb() {
   if (!connectionString) {
-    throw new Error("DATABASE_URL env değişkeni eksik (bkz. .env.example).");
+    throw new Error(
+      "Missing DATABASE_URL environment variable (see .env.example).",
+    );
   }
   return neon(connectionString);
 }
