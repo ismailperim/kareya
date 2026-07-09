@@ -1,29 +1,29 @@
-# ADR-0002: Site = VERİ + workflow-driven orkestrasyon
+# ADR-0002: Site = DATA + workflow-driven orchestration
 
-- **Durum:** Kabul edildi
-- **Tarih:** 2026-07-08
-- **Karar verenler:** İsmail Perim
-- **İlgili ticket:** —
+- **Status:** Accepted
+- **Date:** 2026-07-08
+- **Deciders:** İsmail Perim
+- **Related ticket:** —
 
-## Bağlam
+## Context
 
-İki temel mimari karar, sistemin geri kalanını belirliyor: (1) agent'lar siteyi *nasıl* üretir, (2) kontrol akışının sahibi kim. builder.ai'nin çöküşü (sınırsız üretim + otonom sürü) ve maliyet/debug öngörülebilirliği ihtiyacı bu iki kararı zorunlu kılıyor. Detay: `docs/DESIGN.md` §8.0.
+Two core architectural decisions shape the rest of the system: (1) how agents build the site, (2) who owns control flow. builder.ai's collapse (unbounded generation + autonomous swarm) and the need for cost/debug predictability make both decisions mandatory. Details: `docs/DESIGN.md` §8.0.
 
-## Düşünülen seçenekler
+## Options considered
 
-1. **Agent-driven + LLM ham HTML/CSS üretir** — esnek, demo'da havalı; ama öngörülemez maliyet, resume/debug zor, kod enjeksiyonu riski, kalite tabanı yok (builder.ai borç modeli).
-2. **Workflow-driven + Site = VERİ (Site JSON + deterministik renderer)** — kontrol state machine'de; agent'lar stateless işçi; site tek bir şema-valide JSON; render deterministik.
+1. **Agent-driven + LLM writes raw HTML/CSS** — flexible, flashy in demos; but unpredictable cost, hard to resume/debug, code-injection risk, no quality floor (the builder.ai debt model).
+2. **Workflow-driven + Site = DATA (Site JSON + deterministic renderer)** — control lives in the state machine; agents are stateless workers; the site is a single schema-validated JSON; rendering is deterministic.
 
-## Karar
+## Decision
 
-**Seçenek 2.** İki bağlı ilke:
+**Option 2.** Two linked principles:
 
-**A) Workflow-driven, agent-driven değil.** Kontrol akışının sahibi **state machine** (DESIGN §2); agent'lar aşamalarda çağrılan, girdisi-çıktısı şemayla sabit **stateless işçiler**. Hiçbir agent "sırada ne var" kararı vermez. Kazanım: öngörülebilir maliyet, resume edilebilir job, debug edilebilir hata.
+**A) Workflow-driven, not agent-driven.** The **state machine** owns control flow (DESIGN §2); agents are **stateless workers** invoked per stage with schema-fixed inputs/outputs. No agent decides "what's next." Payoff: predictable cost, resumable jobs, debuggable failures.
 
-**B) Site = kod değil, VERİ.** Her site tek bir **Site JSON** dokümanı (sayfalar → section listesi → props + içerik + marka token'ları), şemayla valide. **Renderer deterministik**: Site JSON + komponent kiti → Astro build. **LLM asla ham HTML/CSS üretmez.** Revizyon = **ChangeOps** (tipli JSON patch; diff'lenebilir, geri alınabilir, ucuz). `OUT_OF_SCOPE` op'u scope-creep'i otomatik ek-teklife eskale eder.
+**B) Site = DATA, not code.** Each site is a single **Site JSON** document (pages → section list → props + content + brand tokens), schema-validated. The **renderer is deterministic**: Site JSON + component kit → build. **The LLM never writes raw HTML/CSS.** A revision = **ChangeOps** (a typed JSON patch; diffable, reversible, cheap). The `OUT_OF_SCOPE` op auto-escalates scope creep to an add-on proposal.
 
-## Sonuçlar
+## Consequences
 
-- **Olumlu:** Revizyon = ucuz JSON patch; QA = şema + görsel; kod enjeksiyonu imkânsız; kalite tabanı komponent kitinden (500-site zanaatı); builder.ai "sınırsız üretim" ölümünün panzehiri.
-- **Olumsuz / takas:** Komponent kiti + üç şema (Brief/Site/ChangeOps) önden yatırım ister; kit dışına çıkan istekler `OUT_OF_SCOPE` disiplini gerektirir (kabul edilen kısıt).
-- **Takip:** Brief JSON + Site JSON + ChangeOps şema v1 ticket'ları; komponent kiti + section envanteri; `schema-guardian` + `component-kit-reviewer` bu kararın bekçileri.
+- **Positive:** revisions are cheap JSON patches; QA = schema + visual; code injection is impossible; the quality floor comes from the component kit (the 500-site craft); the antidote to builder.ai's "unbounded generation" death.
+- **Negative / trade-offs:** the component kit + three schemas (Brief/Site/ChangeOps) require upfront investment; requests outside the kit demand `OUT_OF_SCOPE` discipline (an accepted constraint).
+- **Follow-ups:** Brief/Site JSON + ChangeOps schema v1 tickets; component kit + section inventory; `schema-guardian` + `component-kit-reviewer` guard this decision.

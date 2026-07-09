@@ -3,18 +3,19 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Portal + görüşme odası dinamik (Cloudflare Workers, OpenNext ile).
-  // Üretilen müşteri siteleri ayrı statik-export hattıyla render edilir
-  // (component-kit — sonraki ticket'lar).
+  // Portal + meeting room are dynamic (Cloudflare Workers via OpenNext).
+  // Generated client sites are rendered by a separate static-export
+  // pipeline (component-kit — later tickets).
 
-  // Tracing kökü = monorepo kökü (apps/portal'dan iki üst), packages/* dahil.
+  // Pin the tracing root to the monorepo root (two levels up from
+  // apps/portal) so packages/* are traced.
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
 
-  // Workspace paketlerini Next transpile etsin (monorepo).
+  // Let Next transpile workspace packages (monorepo).
   transpilePackages: ["@kareya/schemas"],
 };
 
 export default nextConfig;
 
-// `next dev` sırasında Cloudflare binding'lerine erişim için (OpenNext).
+// Access Cloudflare bindings during `next dev` (OpenNext).
 initOpenNextCloudflareForDev();

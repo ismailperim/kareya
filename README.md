@@ -1,50 +1,50 @@
 # Kareya
 
-AI-kadrolu web ajansı. Bkz. `CLAUDE.md` ve `docs/DESIGN.md`.
+AI-staffed web agency. See `CLAUDE.md` and `docs/DESIGN.md`.
 
-Bu repo hem Kareya'yı geliştiren **modus** operating model'ini (Linear + subagent'lar + `/modus:*`) hem de ürün kodunu (portal + görüşme odası) barındırır.
+This repo holds both the **modus** operating model that builds Kareya (Linear + subagents + `/modus:*`) and the product code (portal + meeting room).
 
 ## Stack
 
-- **Next.js** (App Router, TS) — portal + görüşme odası
+- **Next.js** (App Router, TS) — portal + meeting room
 - **Tailwind CSS v4**
-- **Neon** (serverless Postgres) — dev DB. _Auth ve Storage ileride ayrı kararlaştırılır (Neon saf Postgres)._
+- **Neon** (serverless Postgres) — dev DB. _Auth and Storage are decided separately later (Neon is plain Postgres)._
 - **Cloudflare** deploy — Workers, [OpenNext](https://opennext.js.org/cloudflare) adapter (`@opennextjs/cloudflare`)
 
-> Üretilen müşteri siteleri ayrı bir statik-export render hattıyla üretilir (component-kit — sonraki ticket'lar). Bu app dinamiktir (Cloudflare Workers).
+> Generated client sites are produced by a separate static-export render pipeline (component-kit — later tickets). This app is dynamic (Cloudflare Workers).
 
-## Yapı (npm workspaces)
+## Structure (npm workspaces)
 
-- `apps/portal/` — portal app (Next.js): pazarlama + müşteri portalı + görüşme odası. Deployable → CF Worker `kareya-portal`.
-- `packages/schemas/` — paylaşılan sözleşmeler (`@kareya/schemas`): Brief/Site JSON/ChangeOps.
-- İleride kardeşler: `apps/web` (pazarlama sitesi), `apps/workers` (agent runtime), `packages/component-kit` (renderer).
+- `apps/portal/` — portal app (Next.js): marketing + customer portal + meeting room. Deployable → CF Worker `kareya-portal`.
+- `packages/schemas/` — shared contracts (`@kareya/schemas`): Brief/Site JSON/ChangeOps.
+- Future siblings: `apps/web` (marketing site), `apps/workers` (agent runtime), `packages/component-kit` (renderer).
 
-Root'tan `npm run dev|build|preview|deploy` komutları `@kareya/portal`'a delege eder.
+From the repo root, `npm run dev|build|preview|deploy` delegate to `@kareya/portal`.
 
-## Kurulum
+## Setup
 
-1. Bağımlılıklar:
+1. Install dependencies:
    ```bash
    npm install
    ```
-2. Ortam değişkenleri — `.env.example`'ı kopyala:
+2. Environment — copy `.env.example`:
    ```bash
    cp apps/portal/.env.example apps/portal/.env.local
    ```
-   Neon **Console > Connection Details**'ten (pooled) connection string'i `DATABASE_URL`'e koy. Bu bir secret'tır — commit etme.
-3. Geliştirme sunucusu:
+   Put the (pooled) connection string from Neon **Console > Connection Details** into `DATABASE_URL`. It is a secret — do not commit it.
+3. Dev server:
    ```bash
    npm run dev
    ```
-   http://localhost:3000 · sağlık kontrolü: http://localhost:3000/health
+   http://localhost:3000 · health check: http://localhost:3000/health
 
 ## Build & deploy
 
-- Standart build: `npm run build`
-- Cloudflare önizleme (lokal Workers runtime): `npm run preview`
-- Cloudflare deploy: `npm run deploy` (`wrangler login` sonrası) — OpenNext build + `wrangler deploy`.
-- CF **Workers Builds** (git-connected): GitHub repo'yu bağla → **Root directory: `apps/portal`**, build command `npx opennextjs-cloudflare build`, Worker adı `kareya-portal`. `DATABASE_URL` proje ayarlarına secret olarak girilir; lokal Workers runtime için `apps/portal/.dev.vars`.
+- Standard build: `npm run build`
+- Cloudflare preview (local Workers runtime): `npm run preview`
+- Cloudflare deploy: `npm run deploy` (after `wrangler login`) — OpenNext build + `wrangler deploy`.
+- CF **Workers Builds** (git-connected): connect the GitHub repo → **Root directory: `apps/portal`**, build command `npx opennextjs-cloudflare build`, Worker name `kareya-portal`. Set `DATABASE_URL` as a project secret; for the local Workers runtime use `apps/portal/.dev.vars`.
 
-## Çalışma modeli
+## Operating model
 
-Her iş bir Linear ticket'ından başlar (`KAR-*`). Döngü ve komutlar: `CLAUDE.md` › Çalışma modeli (modus), detay `docs/process/`.
+Every task starts from a Linear ticket (`KAR-*`). See `CLAUDE.md` and `docs/process/` for the cycle and the `/modus:*` commands.

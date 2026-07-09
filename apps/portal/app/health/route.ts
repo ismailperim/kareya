@@ -7,13 +7,13 @@ export async function GET() {
     return NextResponse.json({
       ok: false,
       db: "unconfigured",
-      hint: ".env.local dosyasında DATABASE_URL tanımlayın (bkz. .env.example)",
+      hint: "Set DATABASE_URL in .env.local (see .env.example)",
     });
   }
 
   try {
     const sql = getDb();
-    // Bağlantı kanıtı: gerçek bir sorgu çalıştır.
+    // Connectivity proof: run a real query.
     const rows = await sql`select now() as now`;
     return NextResponse.json({
       ok: true,
