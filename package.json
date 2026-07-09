@@ -2,31 +2,13 @@
   "name": "kareya",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["packages/*"],
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
-  },
-  "dependencies": {
-    "@kareya/schemas": "*",
-    "@neondatabase/serverless": "^1.1.0",
-    "next": "^15.5.18",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
-  "devDependencies": {
-    "@opennextjs/cloudflare": "^1.0.0",
-    "@tailwindcss/postcss": "^4.0.0",
-    "@types/node": "^22.10.7",
-    "@types/react": "^19.0.7",
-    "@types/react-dom": "^19.0.3",
-    "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.3",
-    "wrangler": "^4.0.0"
+    "dev": "npm run dev -w @kareya/portal",
+    "build": "npm run build -w @kareya/portal",
+    "start": "npm run start -w @kareya/portal",
+    "lint": "npm run lint -w @kareya/portal",
+    "preview": "npm run preview -w @kareya/portal",
+    "deploy": "npm run deploy -w @kareya/portal"
   }
 }
