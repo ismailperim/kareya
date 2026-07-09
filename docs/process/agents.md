@@ -21,7 +21,7 @@ Stack ve mimarinin çekirdeği kararlaştırıldı (`docs/DESIGN.md` §8, `docs/
 - **Portal:** kareya.app (Next.js / CF Pages) — pazarlama + müşteri portalı + preview + görüşme odası.
 - **Agent runtime:** Node/TS worker + Claude API (Agent SDK) + job queue; model routing (parse/patch → ucuz model, copy/art-direction → güçlü model, görsel QA → vision). Site başına <$10 hedefi.
 - **Al/yap çizgisi:** ses altyapısı (ElevenLabs/OpenAI Realtime — spike), ödeme (iyzico+Paraşüt), hosting → **satın al**. Komponent kiti + Site JSON şeması + orkestrasyon + ChangeOps → **yap, moat burası.**
-- **Konvansiyon:** ürün/iletişim/doküman Türkçe; kod/commit/branch İngilizce.
+- **Konvansiyon (dil):** kod, yorum, kod mesajları/API, teknik doküman (README/ADR), commit/branch **İngilizce**; yalnızca son-kullanıcı ürün içeriği (UI/KVKK/pazarlama) **Türkçe**. Strateji/operating dokümanları (DESIGN, `docs/process`, agents) şimdilik Türkçe.
 
 > Genel review/TDD için ECC benzeri bir plugin eklenirse **GateGuard kapalı** kurulmalı (perim.net dersi).
 
