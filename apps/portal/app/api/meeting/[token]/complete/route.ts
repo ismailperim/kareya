@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { safeParseBrief } from "@kareya/schemas";
 
 import { isDbConfigured } from "@/lib/db";
-import { saveBrief, setPhase } from "@/lib/meeting-repo";
+import { enqueueJob } from "@/lib/jobs";
+import { advancePhase, saveBrief, setPhase } from "@/lib/meeting-repo";
 
 // Completes the meeting (KAR-23): saves a finalized, versioned Brief snapshot,
 // advances the workflow phase, and notifies the agency. The customer then sees
@@ -40,7 +41,21 @@ export async function POST(
     console.log(
       `[meeting/complete] 🔔 NEW BRIEF — session=${token.slice(0, 8)}… business="${brief.business.name ?? "?"}" archetype=${brief.archetype ?? "?"} version=${version}`,
     );
-    return NextResponse.json({ ok: true, persisted: true, version });
+
+    // Workflow trigger (KAR-45): queue the site build; the runner picks it up.
+    let jobId: string | null = null;
+    try {
+      jobId = await enqueueJob("build_site", { token, briefVersion: version });
+      const advanced = await advancePhase(token, "BUILDING");
+      if (!advanced) console.warn("[meeting/complete] phase not advanced to BUILDING");
+      console.log(`[meeting/complete] build_site queued job=${jobId}`);
+    } catch (err) {
+      // Completion still succeeds for the customer; the build can be re-queued
+      // from the ops dashboard.
+      console.error("[meeting/complete] enqueue failed", err);
+    }
+
+    return NextResponse.json({ ok: true, persisted: true, version, jobId });
   } catch (err) {
     console.error("[meeting/complete] failed", err);
     return NextResponse.json({ error: "complete_failed" }, { status: 500 });

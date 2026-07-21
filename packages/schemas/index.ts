@@ -7,3 +7,4 @@ export const SCHEMAS_VERSION = "0.2.0";
 export * from "./brief";
 export * from "./gate";
 export * from "./site";
+export * from "./phase";
