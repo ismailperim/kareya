@@ -68,6 +68,8 @@ Kareya, Linear tabanlı **modus** operating model'i ile geliştirilir. **Altın 
 ## Repo haritası
 
 - `CLAUDE.md` — bu dosya (giriş kapısı). · `docs/DESIGN.md` — ana tasarım.
+- `apps/portal` — kareya.app portalı (Next.js → CF Worker): görüşme odası, `/s/[id]` site önizleme, `/ops` dashboard, API'ler. · `apps/runner` — build runner (Node; homelab/container): kuyruktan `build_site` işler → Astro build → R2.
+- `packages/schemas` — Brief/Site JSON + completeness gate + faz makinesi (tek doğruluk kaynağı). · `packages/site-gen` — Brief→Site→Astro üretimi + R2 publish.
 - `docs/process/` — workflow, Linear, git, agent konvansiyonları. · `docs/architecture/decisions/` — ADR'ler. · `docs/meetings/templates/` — seans şablonu.
 - `.claude/agents/` — subagent tanımları. · `.claude/commands/modus/` — `/modus:*` komutları. · `.mcp.json` — Linear MCP config.
 
