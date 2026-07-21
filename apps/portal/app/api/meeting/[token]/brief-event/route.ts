@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 import { isDbConfigured } from "@/lib/db";
 import { recordBriefEvent } from "@/lib/meeting-repo";
 
-// Server-side sink for update_brief tool-calls (KAR-14 acceptance: the tool
-// call is triggered AND logged server-side). For now it logs; persisting brief
-// events to Neon and building the real Brief JSON is a later ticket
-// (schema-guardian / database-dev).
+// Server-side sink for the meeting agent's tool-calls (KAR-22): set_archetype,
+// update_field, set_flag, update_section, set_feature, append_note. Persists to
+// Neon (KAR-20). Fire-and-forget from the client, so a DB failure is logged but
+// never breaks the meeting — the response still succeeds.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -16,31 +16,26 @@ export async function POST(
     return NextResponse.json({ error: "invalid_token" }, { status: 404 });
   }
 
-  let field: unknown;
-  let value: unknown;
+  let body: { kind?: unknown; field?: unknown; value?: unknown; payload?: unknown };
   try {
-    const body = (await req.json()) as { field?: unknown; value?: unknown };
-    field = body.field;
-    value = body.value;
+    body = (await req.json()) as typeof body;
   } catch {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
 
-  if (typeof field !== "string" || typeof value !== "string") {
-    return NextResponse.json({ error: "invalid_body" }, { status: 400 });
-  }
+  const kind = typeof body.kind === "string" && body.kind ? body.kind : "update_brief";
+  const field = typeof body.field === "string" ? body.field : null;
+  const value = typeof body.value === "string" ? body.value : null;
 
   console.log(
-    `[meeting/brief-event] session=${token.slice(0, 8)}… update_brief field=${field} value=${value}`,
+    `[meeting/brief-event] session=${token.slice(0, 8)}… ${kind}${field ? ` field=${field}` : ""}${value ? ` value=${value}` : ""}`,
   );
 
-  // Persist to Neon (KAR-20). Fire-and-forget from the client, so a DB failure
-  // is logged but must not break the meeting — the response still succeeds.
   if (!isDbConfigured) {
     return NextResponse.json({ ok: true, persisted: false });
   }
   try {
-    await recordBriefEvent(token, { kind: "update_brief", field, value });
+    await recordBriefEvent(token, { kind, field, value, payload: body.payload });
     return NextResponse.json({ ok: true, persisted: true });
   } catch (err) {
     console.error("[meeting/brief-event] persist failed", err);
