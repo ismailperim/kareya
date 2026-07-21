@@ -37,6 +37,11 @@ const body = {
     agent: {
       language: "tr",
       first_message: FIRST_MESSAGE,
+      // Resume context (KAR-26). Default keeps the prompt valid when no value is
+      // passed (e.g. simulate-conversation); the client passes the real summary.
+      dynamic_variables: {
+        dynamic_variable_placeholders: { collected_summary: "Henüz bilgi toplanmadı." },
+      },
       prompt: {
         prompt: SYSTEM_PROMPT_V2,
         llm: "claude-sonnet-4-5", // preserve Claude brain (ADR-0003)
