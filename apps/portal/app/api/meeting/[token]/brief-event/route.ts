@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { isDbConfigured } from "@/lib/db";
+import { recordBriefEvent } from "@/lib/meeting-repo";
+
 // Server-side sink for update_brief tool-calls (KAR-14 acceptance: the tool
 // call is triggered AND logged server-side). For now it logs; persisting brief
 // events to Neon and building the real Brief JSON is a later ticket
@@ -31,5 +34,16 @@ export async function POST(
     `[meeting/brief-event] session=${token.slice(0, 8)}… update_brief field=${field} value=${value}`,
   );
 
-  return NextResponse.json({ ok: true });
+  // Persist to Neon (KAR-20). Fire-and-forget from the client, so a DB failure
+  // is logged but must not break the meeting — the response still succeeds.
+  if (!isDbConfigured) {
+    return NextResponse.json({ ok: true, persisted: false });
+  }
+  try {
+    await recordBriefEvent(token, { kind: "update_brief", field, value });
+    return NextResponse.json({ ok: true, persisted: true });
+  } catch (err) {
+    console.error("[meeting/brief-event] persist failed", err);
+    return NextResponse.json({ ok: true, persisted: false });
+  }
 }
