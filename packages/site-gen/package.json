@@ -1,0 +1,12 @@
+{
+  "name": "@kareya/site-gen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "@kareya/schemas": "*",
+    "aws4fetch": "^1.0.20"
+  }
+}

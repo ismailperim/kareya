@@ -6,9 +6,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { parseSite } from "@kareya/schemas";
+import { generateAstroProject } from "@kareya/site-gen";
 
 import { DEMO_SITE } from "../components/site-kit/demo-site";
-import { generateAstroProject } from "../lib/site-generator/generate";
 
 const outDir = process.argv[2] || "./_generated-site";
 const site = parseSite(DEMO_SITE);
