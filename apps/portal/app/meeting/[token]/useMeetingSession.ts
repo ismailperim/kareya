@@ -10,7 +10,7 @@ import {
   type GateResult,
 } from "@kareya/schemas";
 
-import { applyToolCall } from "@/lib/meeting/brief-reducer";
+import { applyToolCall, buildCollectedSummary } from "@/lib/meeting/brief-reducer";
 import { createMeetingSession } from "@/lib/meeting/factory";
 import type {
   AgentMode,
@@ -62,6 +62,18 @@ export function useMeetingSession(token: string): UseMeetingSession {
     [token],
   );
 
+  // Persist the live brief draft so a reload/reconnect can resume (KAR-26).
+  const persistDraft = useCallback(
+    (next: Brief) => {
+      void fetch(`/api/meeting/${token}/brief`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief: next }),
+      }).catch(() => {});
+    },
+    [token],
+  );
+
   const handleToolCall = useCallback(
     (call: MeetingToolCall): unknown => {
       // The agent asks what's still missing; answer from the latest brief.
@@ -72,10 +84,28 @@ export function useMeetingSession(token: string): UseMeetingSession {
       briefRef.current = next;
       setBrief(next);
       logEvent(call);
+      persistDraft(next);
       return "ok";
     },
-    [logEvent],
+    [logEvent, persistDraft],
   );
+
+  // Rehydrate from the saved draft on load (resume after reload).
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/meeting/${token}/brief`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { brief?: Brief } | null) => {
+        if (!cancelled && data?.brief) {
+          briefRef.current = data.brief;
+          setBrief(data.brief);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const connect = useCallback(async () => {
     if (status === "connecting" || status === "connected") return;
@@ -94,15 +124,20 @@ export function useMeetingSession(token: string): UseMeetingSession {
         return;
       }
       const auth = (await res.json()) as MeetingAuth;
-      const session = await createMeetingSession(auth, {
-        onStatusChange: setStatus,
-        onModeChange: setMode,
-        onError: (message) => {
-          setStatus("error");
-          setError(message || "Beklenmeyen bir ses hatası oluştu.");
+      const summary = buildCollectedSummary(briefRef.current);
+      const session = await createMeetingSession(
+        auth,
+        {
+          onStatusChange: setStatus,
+          onModeChange: setMode,
+          onError: (message) => {
+            setStatus("error");
+            setError(message || "Beklenmeyen bir ses hatası oluştu.");
+          },
+          onToolCall: handleToolCall,
         },
-        onToolCall: handleToolCall,
-      });
+        { dynamicVariables: { collected_summary: summary || "Henüz bilgi toplanmadı." } },
+      );
       sessionRef.current = session;
       await session.start();
     } catch (err) {

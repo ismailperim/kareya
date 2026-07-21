@@ -59,6 +59,44 @@ export function applyToolCall(brief: Brief, call: MeetingToolCall): Brief {
   }
 }
 
+// Compact, human-readable summary of what's already collected — passed to the
+// agent as resume context (KAR-26) so it continues instead of restarting.
+export function buildCollectedSummary(brief: Brief): string {
+  const parts: string[] = [];
+  const push = (label: string, v: unknown) => {
+    if (v !== null && v !== undefined && v !== "") parts.push(`${label}: ${v}`);
+  };
+  push("Arketip", brief.archetype);
+  push("İşletme", brief.business.name);
+  push("Sektör", brief.business.sector);
+  push("Slogan", brief.business.tagline);
+  push("Bölge", brief.business.region);
+  push("Ana hedef (CTA)", brief.cta.primaryGoal);
+  push("Ton", brief.brand.tone);
+  if (brief.brand.hasLogo !== null) push("Logo", brief.brand.hasLogo ? "var" : "yok");
+  if (brief.contentSources.hasText !== null)
+    push("Metin kaynağı", brief.contentSources.hasText ? "müşteride" : "biz üreteceğiz");
+  if (brief.contentSources.hasPhotos !== null)
+    push("Görsel kaynağı", brief.contentSources.hasPhotos ? "müşteride" : "biz üreteceğiz");
+  const contact = [
+    brief.contact.phone && `tel ${brief.contact.phone}`,
+    brief.contact.email && `e-posta ${brief.contact.email}`,
+    brief.contact.hours && `saat ${brief.contact.hours}`,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  push("İletişim", contact);
+  const secs = brief.sections
+    .filter((s) => s.willInclude !== null)
+    .map((s) => `${s.key}=${s.willInclude ? (s.contentSource ?? "?") : "yok"}`);
+  if (secs.length) push("Bölümler", secs.join(", "));
+  if (brief.featureDecisions.length)
+    push("Özellikler", brief.featureDecisions.map((d) => `${d.feature}:${d.enabled ? "evet" : "hayır"}`).join(", "));
+  push("Termin", brief.deadline);
+  if (brief.notes) push("Notlar", brief.notes.slice(0, 600));
+  return parts.join("\n");
+}
+
 function emptySection(key: string): BriefSection {
   return { key, willInclude: null, contentSource: null, keyMessage: null, notes: "", facts: {} };
 }

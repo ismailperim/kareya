@@ -77,6 +77,24 @@ export async function getLatestBrief(
   return { version: rows[0].version as number, data: rows[0].data };
 }
 
+/** Save the live brief draft (KAR-26 resume). Upserts the session. */
+export async function saveDraft(token: string, brief: unknown): Promise<void> {
+  const sql = getDb();
+  await sql`
+    insert into meeting_session (token, current_brief)
+    values (${token}, ${JSON.stringify(brief)}::jsonb)
+    on conflict (token) do update
+      set current_brief = ${JSON.stringify(brief)}::jsonb, updated_at = now()
+  `;
+}
+
+/** Load the live brief draft for a token, or null if none. */
+export async function getDraft(token: string): Promise<unknown | null> {
+  const sql = getDb();
+  const rows = await sql`select current_brief from meeting_session where token = ${token}`;
+  return rows.length ? (rows[0].current_brief ?? null) : null;
+}
+
 /** Update the workflow phase for a session. */
 export async function setPhase(token: string, phase: string): Promise<void> {
   const sql = getDb();
