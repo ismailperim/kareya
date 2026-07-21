@@ -74,10 +74,9 @@ export function evaluateGate(brief: Brief): GateResult {
     b.push({ gate: "B", field: "cta.primaryGoal", reason: "Sitenin ana hedef aksiyonu (CTA) belirlenmedi" });
   if (!brief.brand.tone)
     b.push({ gate: "B", field: "brand.tone", reason: "Ton (kurumsal / samimi / premium) alınmadı" });
-  if (!filled(brief.contact.phone))
-    b.push({ gate: "B", field: "contact.phone", reason: "Telefon alınmadı" });
-  if (!filled(brief.contact.email))
-    b.push({ gate: "B", field: "contact.email", reason: "E-posta alınmadı" });
+  // Contact details (phone/email/…) are collected when available but do NOT
+  // block completion — a new business may not have them yet and the site can
+  // launch with placeholders, added later (real demo scenario).
 
   // Section map — driven by the archetype's section metadata.
   if (brief.archetype) {

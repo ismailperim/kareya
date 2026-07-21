@@ -209,6 +209,7 @@ function RoomView({ token }: { token: string }) {
       {phase === "confirming" && (
         <ConfirmModal
           brief={brief}
+          gate={gate}
           submitting={submitting}
           onConfirm={complete}
           onCancel={() => setPhase("room")}
@@ -218,20 +219,25 @@ function RoomView({ token }: { token: string }) {
   );
 }
 
-// Summary + confirm before finalizing (KAR-23).
+// Summary + confirm before finalizing (KAR-23). Completing is allowed even with
+// gaps (KAR-35): the human is in the loop and the site can launch with what's
+// there; missing items are surfaced and recorded for the team to fill.
 function ConfirmModal({
   brief,
+  gate,
   submitting,
   onConfirm,
   onCancel,
 }: {
   brief: Brief;
+  gate: GateResult;
   submitting: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   const includedCount = brief.sections.filter((s) => s.willInclude === true).length;
   const featureCount = brief.featureDecisions.filter((d) => d.enabled).length;
+  const hasGaps = !gate.canComplete;
 
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-gray-900/40 p-5 backdrop-blur-sm">
@@ -249,6 +255,29 @@ function ConfirmModal({
           <Fact label="Seçili özellik" value={String(featureCount)} />
           <Fact label="Termin" value={brief.deadline} />
         </dl>
+
+        {hasGaps && (
+          <div className="mt-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-100">
+            <div className="text-xs font-semibold uppercase tracking-wide text-amber-600">
+              Eksik kalanlar ({gate.missing.length})
+            </div>
+            <ul className="mt-1 space-y-0.5">
+              {gate.missing.slice(0, 6).map((m) => (
+                <li key={m.gate + m.field} className="text-xs text-amber-800">
+                  • {m.reason}
+                </li>
+              ))}
+              {gate.missing.length > 6 && (
+                <li className="text-xs text-amber-600">+{gate.missing.length - 6} daha…</li>
+              )}
+            </ul>
+            <p className="mt-2 text-xs text-amber-700">
+              Bunlar olmadan da devam edebilirsiniz; ekibimiz teklif aşamasında
+              tamamlar.
+            </p>
+          </div>
+        )}
+
         <div className="mt-6 flex gap-3">
           <button
             type="button"
@@ -264,7 +293,7 @@ function ConfirmModal({
             disabled={submitting}
             className="flex-1 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:opacity-60"
           >
-            {submitting ? "Gönderiliyor…" : "Onaylıyorum"}
+            {submitting ? "Gönderiliyor…" : hasGaps ? "Eksiklerle tamamla" : "Onaylıyorum"}
           </button>
         </div>
       </div>
@@ -611,11 +640,10 @@ function BriefPanel({
 
       <button
         type="button"
-        disabled={!gate.canComplete}
         onClick={onComplete}
-        className="mt-4 w-full rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+        className="mt-4 w-full rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95"
       >
-        {gate.canComplete ? "Brief'i onayla" : "Görüşme sürüyor…"}
+        {gate.canComplete ? "Brief'i onayla" : "Görüşmeyi tamamla"}
       </button>
     </section>
   );

@@ -169,7 +169,7 @@ Aşağıda bu görüşmede şimdiye kadar toplanmış bilgiler var. DOLUYSA: bun
 7. İletişim: telefon, e-posta, adres, çalışma saatleri, Instagram → update_field.
 8. Özellik taraması: her birini açık evet/hayır'a bağla (set_feature): iletişim formu, harita, WhatsApp butonu, online randevu, rezervasyon, çok dillilik, sosyal medya akışı. "Belki" ise netleştir. Çok dillilik evetse dilleri sor (update_field multilang.langs).
 9. Termin beklentisi → update_field deadline.
-10. Ara ara check_completeness çağır; dönen eksikleri hedefli sor. GATE bir ZEMİN'dir, tavan değil: eksikler bitse bile projeyi daha iyi anlamak için hikâye/detay sormaya devam et, erken bitirme.
+10. Ara ara ve **bitirmeden hemen önce** check_completeness çağır; dönen eksikleri tek tek hedefli sor. AMA bir bilgi gerçekten YOKSA (müşteride yok / henüz belli değil, ör. yeni işletme telefonu), ISRAR ETME — append_note ile "X henüz yok, sonra eklenecek" diye not düş ve geç. GATE bir ZEMİN'dir, tavan değil: hikâye/detay için konuşmaya devam et, erken bitirme; ama mevcut olmayan bilgi için görüşmeyi tıkama.
 11. Bitirirken topladıklarını kısaca özetle ve teşekkür et.
 
 ## Yetki sınırı (KATII)
