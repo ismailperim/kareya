@@ -1,22 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+  createEmptyBrief,
+  evaluateGate,
+  formatGateSignal,
+  type Brief,
+  type GateResult,
+} from "@kareya/schemas";
+
+import { applyToolCall } from "@/lib/meeting/brief-reducer";
 import { createMeetingSession } from "@/lib/meeting/factory";
 import type {
   AgentMode,
   MeetingAuth,
   MeetingSession,
   MeetingStatus,
+  MeetingToolCall,
 } from "@/lib/meeting/types";
 
 export type UseMeetingSession = {
   status: MeetingStatus;
   mode: AgentMode | null;
-  /** Brief facts collected live via update_brief tool-calls (KAR-15 panel). */
-  brief: Record<string, string>;
+  /** Live Brief assembled from the agent's tool calls (KAR-22). */
+  brief: Brief;
+  /** Completeness gate over the live brief (KAR-21). */
+  gate: GateResult;
   error: string | null;
-  /** false once the server reports the voice vendor is not configured. */
   voiceConfigured: boolean;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -25,22 +36,45 @@ export type UseMeetingSession = {
 export function useMeetingSession(token: string): UseMeetingSession {
   const [status, setStatus] = useState<MeetingStatus>("idle");
   const [mode, setMode] = useState<AgentMode | null>(null);
-  const [brief, setBrief] = useState<Record<string, string>>({});
+  const [brief, setBrief] = useState<Brief>(() => createEmptyBrief());
   const [error, setError] = useState<string | null>(null);
   const [voiceConfigured, setVoiceConfigured] = useState(true);
   const sessionRef = useRef<MeetingSession | null>(null);
+  // Source of truth for tool-call reduction — kept current so check_completeness
+  // reflects the very latest brief even between renders.
+  const briefRef = useRef<Brief>(brief);
 
-  const handleBrief = useCallback(
-    (field: string, value: string) => {
-      setBrief((prev) => ({ ...prev, [field]: value }));
-      // Fire-and-forget server-side log (KAR-14 acceptance).
+  const gate = useMemo(() => evaluateGate(brief), [brief]);
+
+  const logEvent = useCallback(
+    (call: MeetingToolCall) => {
       void fetch(`/api/meeting/${token}/brief-event`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ field, value }),
+        body: JSON.stringify({
+          kind: call.name,
+          field: typeof call.parameters.path === "string" ? call.parameters.path : null,
+          value: typeof call.parameters.value === "string" ? call.parameters.value : null,
+          payload: call.parameters,
+        }),
       }).catch(() => {});
     },
     [token],
+  );
+
+  const handleToolCall = useCallback(
+    (call: MeetingToolCall): unknown => {
+      // The agent asks what's still missing; answer from the latest brief.
+      if (call.name === "check_completeness") {
+        return formatGateSignal(evaluateGate(briefRef.current));
+      }
+      const next = applyToolCall(briefRef.current, call);
+      briefRef.current = next;
+      setBrief(next);
+      logEvent(call);
+      return "ok";
+    },
+    [logEvent],
   );
 
   const connect = useCallback(async () => {
@@ -67,18 +101,7 @@ export function useMeetingSession(token: string): UseMeetingSession {
           setStatus("error");
           setError(message || "Beklenmeyen bir ses hatası oluştu.");
         },
-        onToolCall: (call) => {
-          if (call.name === "update_brief") {
-            const { field, value } = call.parameters as {
-              field?: string;
-              value?: string;
-            };
-            if (typeof field === "string" && typeof value === "string") {
-              handleBrief(field, value);
-            }
-          }
-          return "ok";
-        },
+        onToolCall: handleToolCall,
       });
       sessionRef.current = session;
       await session.start();
@@ -86,7 +109,7 @@ export function useMeetingSession(token: string): UseMeetingSession {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Ses bağlantısı kurulamadı.");
     }
-  }, [status, token, handleBrief]);
+  }, [status, token, handleToolCall]);
 
   const disconnect = useCallback(async () => {
     await sessionRef.current?.stop();
@@ -95,7 +118,6 @@ export function useMeetingSession(token: string): UseMeetingSession {
     setStatus("disconnected");
   }, []);
 
-  // Ensure the vendor connection is released if the room unmounts mid-call.
   useEffect(() => {
     return () => {
       void sessionRef.current?.stop();
@@ -103,5 +125,5 @@ export function useMeetingSession(token: string): UseMeetingSession {
     };
   }, []);
 
-  return { status, mode, brief, error, voiceConfigured, connect, disconnect };
+  return { status, mode, brief, gate, error, voiceConfigured, connect, disconnect };
 }

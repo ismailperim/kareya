@@ -1,5 +1,6 @@
 import { Conversation } from "@elevenlabs/client";
 
+import { MEETING_TOOL_NAMES } from "./agent-config";
 import type {
   AgentMode,
   MeetingSession,
@@ -25,18 +26,19 @@ export class ElevenLabsSession implements MeetingSession {
     this.conversation = await Conversation.startSession({
       conversationToken: this.conversationToken,
       connectionType: "webrtc",
-      clientTools: {
-        // The agent calls update_brief(field, value) as it learns each fact.
-        // We forward it through the vendor-agnostic callback; the room turns
-        // it into a live panel update + a server-side log.
-        update_brief: async (params: { field: string; value: string }) => {
-          const result = await this.callbacks.onToolCall?.({
-            name: "update_brief",
-            parameters: { field: params.field, value: params.value },
-          });
-          return typeof result === "string" ? result : "ok";
-        },
-      },
+      // v2 brief-collection tools (KAR-22). Each forwards to the vendor-agnostic
+      // callback; the room applies it to the Brief + gate and logs it. The
+      // callback's return value is passed back to the agent (used by
+      // check_completeness to report what's still missing).
+      clientTools: Object.fromEntries(
+        MEETING_TOOL_NAMES.map((name) => [
+          name,
+          async (params: Record<string, unknown>) => {
+            const result = await this.callbacks.onToolCall?.({ name, parameters: params ?? {} });
+            return typeof result === "string" ? result : "ok";
+          },
+        ]),
+      ),
       onConnect: () => this.callbacks.onStatusChange?.("connected"),
       onDisconnect: () => this.callbacks.onStatusChange?.("disconnected"),
       onError: (message: string) => this.callbacks.onError?.(message),
