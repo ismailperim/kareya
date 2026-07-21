@@ -1,3 +1,5 @@
+import { canTransition, isPhase, type Phase } from "@kareya/schemas";
+
 import { getDb } from "@/lib/db";
 
 // Server-only data access for meeting sessions + briefs (KAR-20).
@@ -102,4 +104,17 @@ export async function setPhase(token: string, phase: string): Promise<void> {
     update meeting_session set phase = ${phase}, updated_at = now()
     where token = ${token}
   `;
+}
+
+/**
+ * Validated phase transition (KAR-45): reads the current phase, checks the
+ * machine, then updates. Returns false when the transition is invalid.
+ */
+export async function advancePhase(token: string, to: Phase): Promise<boolean> {
+  const sql = getDb();
+  const rows = await sql`select phase from meeting_session where token = ${token}`;
+  const current = rows[0]?.phase as string | undefined;
+  if (!current || !isPhase(current) || !canTransition(current, to)) return false;
+  await setPhase(token, to);
+  return true;
 }
