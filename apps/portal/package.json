@@ -12,12 +12,14 @@
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:migrate": "node scripts/migrate.mjs",
     "setup:agent": "vite-node scripts/setup-agent.ts",
-    "generate:demo": "vite-node scripts/generate-demo-site.ts"
+    "generate:demo": "vite-node scripts/generate-demo-site.ts",
+    "upload:r2": "vite-node scripts/upload-to-r2.ts"
   },
   "dependencies": {
     "@elevenlabs/client": "^1.14.1",
     "@kareya/schemas": "*",
     "@neondatabase/serverless": "^1.1.0",
+    "aws4fetch": "^1.0.20",
     "next": "^15.5.18",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
