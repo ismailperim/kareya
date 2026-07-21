@@ -5,3 +5,4 @@
 export const SCHEMAS_VERSION = "0.1.0";
 
 export * from "./brief";
+export * from "./gate";
