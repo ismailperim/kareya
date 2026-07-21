@@ -41,6 +41,13 @@ test("complete hizmet brief passes both gates", () => {
   assert.equal(r.canComplete, true);
 });
 
+test("completes without contact phone/email (new business — KAR-35)", () => {
+  const r = evaluateGate(
+    completeHizmet({ contact: { phone: "", email: "", address: "", hours: "", whatsapp: "" } }),
+  );
+  assert.equal(r.canComplete, true);
+});
+
 test("missing content source (GATE-A) blocks completion", () => {
   const r = evaluateGate(completeHizmet({ contentSources: { hasText: null, hasPhotos: true } }));
   assert.equal(r.canComplete, false);
