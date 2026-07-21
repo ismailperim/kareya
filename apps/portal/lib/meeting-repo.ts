@@ -106,6 +106,28 @@ export async function setPhase(token: string, phase: string): Promise<void> {
   `;
 }
 
+export type SessionSummary = {
+  token: string;
+  phase: string;
+  updated_at: string;
+  business_name: string | null;
+  has_draft: boolean;
+};
+
+/** Recent meeting sessions for the ops dashboard (KAR-47). */
+export async function listSessions(limit = 50): Promise<SessionSummary[]> {
+  const sql = getDb();
+  const rows = await sql`
+    select token, phase, updated_at,
+           current_brief->'business'->>'name' as business_name,
+           (current_brief is not null) as has_draft
+    from meeting_session
+    order by updated_at desc
+    limit ${limit}
+  `;
+  return rows as unknown as SessionSummary[];
+}
+
 /**
  * Validated phase transition (KAR-45): reads the current phase, checks the
  * machine, then updates. Returns false when the transition is invalid.
