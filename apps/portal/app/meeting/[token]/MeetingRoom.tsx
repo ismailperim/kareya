@@ -160,10 +160,35 @@ function MicStep({
   );
 }
 
-// Room layout: live voice panel (KAR-14/25) + live brief panel (KAR-24).
+// Room layout: live voice panel (KAR-14/25) + live brief panel (KAR-24) +
+// completion flow (KAR-23): confirm summary → save → next-step screen.
 function RoomView({ token }: { token: string }) {
   const { status, mode, brief, gate, error, voiceConfigured, connect, disconnect } =
     useMeetingSession(token);
+  const [phase, setPhase] = useState<"room" | "confirming" | "done">("room");
+  const [submitting, setSubmitting] = useState(false);
+
+  const complete = useCallback(async () => {
+    setSubmitting(true);
+    try {
+      await disconnect();
+    } catch {
+      /* ignore */
+    }
+    try {
+      await fetch(`/api/meeting/${token}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brief }),
+      });
+    } catch {
+      /* the meeting still completes for the customer */
+    }
+    setSubmitting(false);
+    setPhase("done");
+  }, [token, brief, disconnect]);
+
+  if (phase === "done") return <CompletedScreen brief={brief} />;
 
   return (
     <div className="w-full">
@@ -176,12 +201,92 @@ function RoomView({ token }: { token: string }) {
           onConnect={connect}
           onDisconnect={disconnect}
         />
-        <BriefPanel brief={brief} gate={gate} />
+        <BriefPanel brief={brief} gate={gate} onComplete={() => setPhase("confirming")} />
       </div>
       <p className="mt-4 text-center text-xs text-gray-400">
         Oturum: {token.slice(0, 8)}…
       </p>
+      {phase === "confirming" && (
+        <ConfirmModal
+          brief={brief}
+          submitting={submitting}
+          onConfirm={complete}
+          onCancel={() => setPhase("room")}
+        />
+      )}
     </div>
+  );
+}
+
+// Summary + confirm before finalizing (KAR-23).
+function ConfirmModal({
+  brief,
+  submitting,
+  onConfirm,
+  onCancel,
+}: {
+  brief: Brief;
+  submitting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const includedCount = brief.sections.filter((s) => s.willInclude === true).length;
+  const featureCount = brief.featureDecisions.filter((d) => d.enabled).length;
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-gray-900/40 p-5 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl bg-white p-7 shadow-2xl ring-1 ring-black/5">
+        <h3 className="text-xl font-semibold tracking-tight text-gray-900">Görüşmeyi tamamla</h3>
+        <p className="mt-1 text-sm text-gray-600">
+          Topladığımız bilgilerle teklifinizi hazırlayacağız. Özet aşağıda —
+          onaylıyor musunuz?
+        </p>
+        <dl className="mt-4 space-y-1.5 rounded-2xl bg-indigo-50/60 p-4 text-sm">
+          <Fact label="İşletme" value={brief.business.name} />
+          <Fact label="Sektör" value={brief.business.sector} />
+          <Fact label="Site tipi" value={brief.archetype} />
+          <Fact label="Bölüm sayısı" value={includedCount ? String(includedCount) : null} />
+          <Fact label="Seçili özellik" value={String(featureCount)} />
+          <Fact label="Termin" value={brief.deadline} />
+        </dl>
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-40"
+          >
+            Görüşmeye dön
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={submitting}
+            className="flex-1 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:opacity-60"
+          >
+            {submitting ? "Gönderiliyor…" : "Onaylıyorum"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Next-step screen shown to the customer after completion (KAR-23).
+function CompletedScreen({ brief }: { brief: Brief }) {
+  return (
+    <section className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-xl shadow-indigo-500/5 ring-1 ring-black/5">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-2xl text-white shadow-lg shadow-indigo-500/20">
+        ✓
+      </div>
+      <h2 className="mt-5 text-2xl font-semibold tracking-tight text-gray-900">Teşekkürler!</h2>
+      <p className="mt-2 text-gray-600">
+        {brief.business.name ? <strong>{brief.business.name}</strong> : "İşletmeniz"} için
+        topladığımız bilgilerle teklifinizi hazırlıyoruz. Ekibimiz kısa süre içinde
+        WhatsApp üzerinden sizinle iletişime geçecek.
+      </p>
+      <p className="mt-6 text-xs text-gray-400">Bu pencereyi kapatabilirsiniz.</p>
+    </section>
   );
 }
 
@@ -377,7 +482,15 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 // Live brief panel v2 — the "notlarımı alıyor" trust UX (KAR-24). Full section
 // map + content sources + free-form notes + gate gaps, filling in real time.
-function BriefPanel({ brief, gate }: { brief: Brief; gate: GateResult }) {
+function BriefPanel({
+  brief,
+  gate,
+  onComplete,
+}: {
+  brief: Brief;
+  gate: GateResult;
+  onComplete: () => void;
+}) {
   const sectionLabels: Record<string, string> = brief.archetype
     ? Object.fromEntries(ARCHETYPE_SECTIONS[brief.archetype].map((s) => [s.key, s.label]))
     : {};
@@ -499,6 +612,7 @@ function BriefPanel({ brief, gate }: { brief: Brief; gate: GateResult }) {
       <button
         type="button"
         disabled={!gate.canComplete}
+        onClick={onComplete}
         className="mt-4 w-full rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
       >
         {gate.canComplete ? "Brief'i onayla" : "Görüşme sürüyor…"}
