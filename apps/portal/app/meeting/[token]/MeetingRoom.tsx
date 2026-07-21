@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react";
 
+import type { Brief, GateResult } from "@kareya/schemas";
+
 import type { AgentMode, MeetingStatus } from "@/lib/meeting/types";
 import { useMeetingSession } from "./useMeetingSession";
 
@@ -128,7 +130,7 @@ function MicStep({
 
 // Room layout: live voice panel (KAR-14) + live brief panel (KAR-15).
 function RoomView({ token }: { token: string }) {
-  const { status, mode, brief, error, voiceConfigured, connect, disconnect } =
+  const { status, mode, brief, gate, error, voiceConfigured, connect, disconnect } =
     useMeetingSession(token);
 
   return (
@@ -143,7 +145,7 @@ function RoomView({ token }: { token: string }) {
           onDisconnect={disconnect}
         />
 
-        <BriefPanel brief={brief} />
+        <BriefPanel brief={brief} gate={gate} />
       </div>
       <p className="mt-4 text-center text-xs text-gray-400">
         Oturum: {token.slice(0, 8)}…
@@ -152,64 +154,66 @@ function RoomView({ token }: { token: string }) {
   );
 }
 
-// The fields the agent fills via update_brief(field, value), in ask order.
-// `field` values must match the agent's system prompt (see the ElevenLabs agent).
-const BRIEF_FIELDS: { key: string; label: string }[] = [
-  { key: "businessName", label: "İşletme adı" },
-  { key: "sector", label: "Sektör" },
-  { key: "hasLogo", label: "Logo var mı?" },
-  { key: "referenceSite", label: "Referans site" },
-];
-
-// Live brief panel — the "notlarımı alıyor" trust UX. Each field fills in real
-// time as the agent calls update_brief. Confirmation is a placeholder for now
-// (Brief JSON finalization + validation is a later schema-guardian ticket).
-function BriefPanel({ brief }: { brief: Record<string, string> }) {
-  const filled = BRIEF_FIELDS.filter((f) => brief[f.key]).length;
-  const allFilled = filled === BRIEF_FIELDS.length;
+// Live brief panel — the "notlarımı alıyor" trust UX. Fields + free-form notes
+// fill in real time as the agent calls its tools; the completeness gate (KAR-21)
+// drives the "tamamla" button. The full section-map view arrives in KAR-24.
+function BriefPanel({ brief, gate }: { brief: Brief; gate: GateResult }) {
+  const rows: { label: string; value: string | null | undefined }[] = [
+    { label: "İşletme", value: brief.business.name },
+    { label: "Sektör", value: brief.business.sector },
+    { label: "Arketip", value: brief.archetype },
+    { label: "Slogan", value: brief.business.tagline },
+  ];
 
   return (
     <section className="flex min-h-[320px] flex-col rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold">Brief</h2>
-        <span className="text-xs text-gray-400">
-          {filled}/{BRIEF_FIELDS.length}
+        <span
+          className={[
+            "rounded-full px-2 py-0.5 text-xs font-medium",
+            gate.canComplete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
+          ].join(" ")}
+        >
+          {gate.canComplete ? "Hazır" : `${gate.missing.length} eksik`}
         </span>
       </div>
       <p className="mt-1 text-sm text-gray-500">
         Görüşme sırasında notlarınız burada belirir.
       </p>
-      <dl className="mt-4 space-y-3">
-        {BRIEF_FIELDS.map(({ key, label }) => {
-          const value = brief[key];
-          return (
-            <div
-              key={key}
-              className={[
-                "rounded-lg px-3 py-2 transition-colors",
-                value ? "bg-blue-50" : "bg-gray-50",
-              ].join(" ")}
-            >
-              <dt className="text-xs uppercase tracking-wide text-gray-400">
-                {label}
-              </dt>
-              <dd
-                className={
-                  value ? "text-sm font-medium text-gray-800" : "text-sm text-gray-300"
-                }
-              >
-                {value || "—"}
-              </dd>
-            </div>
-          );
-        })}
+
+      <dl className="mt-4 space-y-2">
+        {rows.map(({ label, value }) => (
+          <div
+            key={label}
+            className={[
+              "rounded-lg px-3 py-2 transition-colors",
+              value ? "bg-blue-50" : "bg-gray-50",
+            ].join(" ")}
+          >
+            <dt className="text-xs uppercase tracking-wide text-gray-400">{label}</dt>
+            <dd className={value ? "text-sm font-medium text-gray-800" : "text-sm text-gray-300"}>
+              {value || "—"}
+            </dd>
+          </div>
+        ))}
       </dl>
+
+      {brief.notes && (
+        <div className="mt-3">
+          <div className="text-xs uppercase tracking-wide text-gray-400">Görüşme notları</div>
+          <p className="mt-1 max-h-28 overflow-y-auto whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
+            {brief.notes}
+          </p>
+        </div>
+      )}
+
       <button
         type="button"
-        disabled={!allFilled}
+        disabled={!gate.canComplete}
         className="mt-auto w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {allFilled ? "Brief'i onayla" : "Görüşme sürüyor…"}
+        {gate.canComplete ? "Brief'i onayla" : "Görüşme sürüyor…"}
       </button>
     </section>
   );
