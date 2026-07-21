@@ -1,14 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
-import type { Brief, GateResult } from "@kareya/schemas";
+import { ARCHETYPE_SECTIONS, type Brief, type GateResult } from "@kareya/schemas";
 
 import type { AgentMode, MeetingStatus } from "@/lib/meeting/types";
 import { useMeetingSession } from "./useMeetingSession";
 
 type Step = "consent" | "mic" | "room";
 type MicStatus = "idle" | "requesting" | "granted" | "denied";
+
+// Brand logomark (kare motif — a square framing a nested square) + wordmark.
+function Logo() {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <svg width="28" height="28" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="kareyaHdr" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#6366F1" />
+            <stop offset="1" stopColor="#8B5CF6" />
+          </linearGradient>
+        </defs>
+        <rect width="48" height="48" rx="12" fill="url(#kareyaHdr)" />
+        <rect x="13" y="13" width="22" height="22" rx="5" stroke="#fff" strokeWidth="3" />
+        <rect x="23.5" y="23.5" width="11.5" height="11.5" rx="3" fill="#fff" />
+      </svg>
+      <span className="text-lg font-semibold tracking-tight text-gray-900">kareya</span>
+    </span>
+  );
+}
 
 export function MeetingRoom({ token }: { token: string }) {
   const [step, setStep] = useState<Step>("consent");
@@ -20,8 +40,8 @@ export function MeetingRoom({ token }: { token: string }) {
     setMicError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Permission granted; stop the stream for now — the audio session is
-      // set up in KAR-14 behind the MeetingSession abstraction.
+      // Permission granted; stop the stream — the audio session opens later
+      // behind the MeetingSession abstraction.
       stream.getTracks().forEach((t) => t.stop());
       setMicStatus("granted");
       setStep("room");
@@ -36,15 +56,20 @@ export function MeetingRoom({ token }: { token: string }) {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-gray-50">
-      <HumanHandoffButton />
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center p-6">
+    <div className="relative min-h-screen bg-gradient-to-b from-indigo-50/70 via-white to-white">
+      <header className="sticky top-0 z-20 border-b border-black/5 bg-white/75 backdrop-blur">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3">
+          <Logo />
+          <HumanHandoffButton />
+        </div>
+      </header>
+      <main className="mx-auto flex min-h-[calc(100vh-58px)] max-w-5xl items-center justify-center p-5 sm:p-6">
         {step === "consent" && <ConsentStep onAccept={() => setStep("mic")} />}
         {step === "mic" && (
           <MicStep status={micStatus} error={micError} onRequest={requestMic} />
         )}
         {step === "room" && <RoomView token={token} />}
-      </div>
+      </main>
     </div>
   );
 }
@@ -53,12 +78,18 @@ export function MeetingRoom({ token }: { token: string }) {
 function ConsentStep({ onAccept }: { onAccept: () => void }) {
   const [checked, setChecked] = useState(false);
   return (
-    <section className="w-full rounded-2xl bg-white p-8 shadow-sm">
-      <h1 className="text-2xl font-semibold">Görüşme Odası</h1>
+    <section className="w-full max-w-lg rounded-3xl bg-white p-8 shadow-xl shadow-indigo-500/5 ring-1 ring-black/5">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-xl text-white shadow-lg shadow-indigo-500/20">
+        💬
+      </div>
+      <h1 className="mt-5 text-2xl font-semibold tracking-tight text-gray-900">
+        Görüşme Odası
+      </h1>
       <p className="mt-2 text-gray-600">
-        Görüşmeye başlamadan önce onayınız gerekiyor.
+        Size gerçekten yakışan bir web sitesi çıkarmak için kısa bir sohbet
+        edeceğiz. Başlamadan önce onayınız gerekiyor.
       </p>
-      <div className="mt-6 space-y-3 rounded-xl bg-gray-50 p-4 text-sm text-gray-600">
+      <div className="mt-6 space-y-3 rounded-2xl bg-indigo-50/60 p-4 text-sm text-gray-600">
         <p>
           Bu görüşme, talebinizi doğru hazırlayabilmek için{" "}
           <strong>ses kaydı ve metne dökme (transkript)</strong> yoluyla işlenir.
@@ -75,7 +106,7 @@ function ConsentStep({ onAccept }: { onAccept: () => void }) {
           type="checkbox"
           checked={checked}
           onChange={(e) => setChecked(e.target.checked)}
-          className="mt-1"
+          className="mt-1 h-4 w-4 rounded border-gray-300 accent-indigo-600"
         />
         <span>Görüşmenin kaydedilmesini ve işlenmesini onaylıyorum.</span>
       </label>
@@ -83,7 +114,7 @@ function ConsentStep({ onAccept }: { onAccept: () => void }) {
         type="button"
         disabled={!checked}
         onClick={onAccept}
-        className="mt-6 w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-40"
+        className="mt-6 w-full rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
       >
         Onaylıyorum ve devam et
       </button>
@@ -102,21 +133,22 @@ function MicStep({
   onRequest: () => void;
 }) {
   return (
-    <section className="w-full rounded-2xl bg-white p-8 text-center shadow-sm">
-      <h2 className="text-xl font-semibold">Mikrofon izni</h2>
+    <section className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-xl shadow-indigo-500/5 ring-1 ring-black/5">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-2xl text-white shadow-lg shadow-indigo-500/20">
+        🎤
+      </div>
+      <h2 className="mt-5 text-xl font-semibold text-gray-900">Mikrofon izni</h2>
       <p className="mt-2 text-gray-600">
         Sesli görüşme için mikrofonunuza erişim gerekiyor.
       </p>
       {error && (
-        <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
-          {error}
-        </p>
+        <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p>
       )}
       <button
         type="button"
         onClick={onRequest}
         disabled={status === "requesting"}
-        className="mt-6 rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition disabled:opacity-40"
+        className="mt-6 w-full rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-6 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:opacity-40"
       >
         {status === "requesting"
           ? "İzin isteniyor…"
@@ -128,14 +160,14 @@ function MicStep({
   );
 }
 
-// Room layout: live voice panel (KAR-14) + live brief panel (KAR-15).
+// Room layout: live voice panel (KAR-14/25) + live brief panel (KAR-24).
 function RoomView({ token }: { token: string }) {
   const { status, mode, brief, gate, error, voiceConfigured, connect, disconnect } =
     useMeetingSession(token);
 
   return (
     <div className="w-full">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid items-start gap-5 md:grid-cols-2">
         <VoicePanel
           status={status}
           mode={mode}
@@ -144,7 +176,6 @@ function RoomView({ token }: { token: string }) {
           onConnect={connect}
           onDisconnect={disconnect}
         />
-
         <BriefPanel brief={brief} gate={gate} />
       </div>
       <p className="mt-4 text-center text-xs text-gray-400">
@@ -154,74 +185,8 @@ function RoomView({ token }: { token: string }) {
   );
 }
 
-// Live brief panel — the "notlarımı alıyor" trust UX. Fields + free-form notes
-// fill in real time as the agent calls its tools; the completeness gate (KAR-21)
-// drives the "tamamla" button. The full section-map view arrives in KAR-24.
-function BriefPanel({ brief, gate }: { brief: Brief; gate: GateResult }) {
-  const rows: { label: string; value: string | null | undefined }[] = [
-    { label: "İşletme", value: brief.business.name },
-    { label: "Sektör", value: brief.business.sector },
-    { label: "Arketip", value: brief.archetype },
-    { label: "Slogan", value: brief.business.tagline },
-  ];
-
-  return (
-    <section className="flex min-h-[320px] flex-col rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold">Brief</h2>
-        <span
-          className={[
-            "rounded-full px-2 py-0.5 text-xs font-medium",
-            gate.canComplete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
-          ].join(" ")}
-        >
-          {gate.canComplete ? "Hazır" : `${gate.missing.length} eksik`}
-        </span>
-      </div>
-      <p className="mt-1 text-sm text-gray-500">
-        Görüşme sırasında notlarınız burada belirir.
-      </p>
-
-      <dl className="mt-4 space-y-2">
-        {rows.map(({ label, value }) => (
-          <div
-            key={label}
-            className={[
-              "rounded-lg px-3 py-2 transition-colors",
-              value ? "bg-blue-50" : "bg-gray-50",
-            ].join(" ")}
-          >
-            <dt className="text-xs uppercase tracking-wide text-gray-400">{label}</dt>
-            <dd className={value ? "text-sm font-medium text-gray-800" : "text-sm text-gray-300"}>
-              {value || "—"}
-            </dd>
-          </div>
-        ))}
-      </dl>
-
-      {brief.notes && (
-        <div className="mt-3">
-          <div className="text-xs uppercase tracking-wide text-gray-400">Görüşme notları</div>
-          <p className="mt-1 max-h-28 overflow-y-auto whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
-            {brief.notes}
-          </p>
-        </div>
-      )}
-
-      <button
-        type="button"
-        disabled={!gate.canComplete}
-        className="mt-auto w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {gate.canComplete ? "Brief'i onayla" : "Görüşme sürüyor…"}
-      </button>
-    </section>
-  );
-}
-
 // Consultant avatar: two looping clips (speaking / listening) crossfaded by the
-// agent's mode (KAR-25). Both play muted; opacity toggles on mode change so the
-// switch is smooth. Honors prefers-reduced-motion with a static poster frame.
+// agent's mode (KAR-25). Honors prefers-reduced-motion with a static poster.
 function AvatarVideo({ speaking }: { speaking: boolean }) {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {
@@ -274,8 +239,7 @@ function AvatarVideo({ speaking }: { speaking: boolean }) {
   );
 }
 
-// Live voice panel: connect/disconnect + connection status + talk indicator.
-// Falls back to a "not configured yet" state when the server has no voice env.
+// Live voice panel: avatar + connect/disconnect + connection status + talk state.
 function VoicePanel({
   status,
   mode,
@@ -293,20 +257,22 @@ function VoicePanel({
 }) {
   const connected = status === "connected";
   const connecting = status === "connecting";
+  const speaking = connected && mode === "speaking";
 
   return (
-    <section className="flex min-h-[320px] flex-col rounded-2xl bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold">Görüşme</h2>
-      <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-4 text-center">
-        <div
-          className={[
-            "relative h-44 w-44 overflow-hidden rounded-2xl bg-gray-100 shadow-inner ring-2 transition-colors duration-300",
-            connected && mode === "speaking" ? "ring-blue-400" : "ring-transparent",
-          ].join(" ")}
-        >
-          <AvatarVideo speaking={connected && mode === "speaking"} />
-          {connecting && (
-            <div className="absolute inset-0 animate-pulse bg-gray-200/60" />
+    <section className="flex min-h-[420px] flex-col items-center rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+      <h2 className="self-start text-sm font-semibold uppercase tracking-wide text-gray-400">
+        Danışman
+      </h2>
+
+      <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-5 text-center">
+        <div className="relative h-48 w-48">
+          <div className="relative h-full w-full overflow-hidden rounded-3xl bg-gray-100 shadow-lg ring-1 ring-black/5">
+            <AvatarVideo speaking={speaking} />
+            {connecting && <div className="absolute inset-0 animate-pulse bg-gray-200/60" />}
+          </div>
+          {speaking && (
+            <div className="pointer-events-none absolute -inset-1 animate-pulse rounded-[1.75rem] ring-4 ring-indigo-400/60" />
           )}
         </div>
 
@@ -315,19 +281,25 @@ function VoicePanel({
             Sesli görüşme henüz yapılandırılmadı. Kısa süre içinde aktif olacak.
           </p>
         ) : connected ? (
-          <p className="text-sm font-medium text-gray-700">
-            {mode === "speaking" ? "Ajan konuşuyor…" : "Sizi dinliyorum…"}
-          </p>
+          <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700">
+            <span
+              className={[
+                "h-2 w-2 rounded-full",
+                speaking ? "animate-pulse bg-indigo-500" : "bg-indigo-300",
+              ].join(" ")}
+            />
+            {speaking ? "Danışman konuşuyor…" : "Sizi dinliyorum…"}
+          </div>
         ) : connecting ? (
           <p className="text-sm text-gray-500">Bağlanıyor…</p>
         ) : (
           <p className="max-w-xs text-sm text-gray-500">
-            Hazır olduğunuzda görüşmeyi başlatın; sesli asistan sizi karşılayacak.
+            Hazır olduğunuzda görüşmeyi başlatın; danışmanınız sizi karşılayacak.
           </p>
         )}
 
         {error && (
-          <p className="max-w-xs rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          <p className="max-w-xs rounded-xl bg-red-50 p-3 text-sm text-red-600">
             {error}
           </p>
         )}
@@ -346,7 +318,7 @@ function VoicePanel({
               type="button"
               onClick={onConnect}
               disabled={connecting}
-              className="rounded-xl bg-blue-600 px-6 py-3 font-medium text-white transition hover:bg-blue-700 disabled:opacity-40"
+              className="rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-6 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:opacity-40"
             >
               {status === "error" ? "Tekrar dene" : "Görüşmeyi başlat"}
             </button>
@@ -356,20 +328,199 @@ function VoicePanel({
   );
 }
 
+const CONTENT_SOURCE_LABELS: Record<string, string> = {
+  client_text: "müşteride metin",
+  client_photos: "müşteride görsel",
+  instagram: "Instagram",
+  provided_file: "dosya verilecek",
+  existing_site: "mevcut site",
+  agency_generated: "biz üreteceğiz",
+  none: "yok",
+};
+
+const FEATURE_LABELS: Record<string, string> = {
+  contact_form: "İletişim formu",
+  map: "Harita",
+  whatsapp_button: "WhatsApp butonu",
+  appointment: "Online randevu",
+  reservation: "Rezervasyon",
+  multilang: "Çok dillilik",
+  social_feed: "Sosyal medya akışı",
+};
+
+function yesNo(v: boolean | null): string | null {
+  return v === true ? "Evet" : v === false ? "Hayır" : null;
+}
+
+// A single labeled fact; dimmed when not yet collected.
+function Fact({ label, value }: { label: string; value: string | null | undefined }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 py-0.5">
+      <span className="shrink-0 text-xs text-gray-400">{label}</span>
+      <span className={value ? "text-right text-sm font-medium text-gray-800" : "text-sm text-gray-300"}>
+        {value || "—"}
+      </span>
+    </div>
+  );
+}
+
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+        {title}
+      </div>
+      <div className="rounded-xl bg-gray-50 px-3 py-2 ring-1 ring-black/5">{children}</div>
+    </div>
+  );
+}
+
+// Live brief panel v2 — the "notlarımı alıyor" trust UX (KAR-24). Full section
+// map + content sources + free-form notes + gate gaps, filling in real time.
+function BriefPanel({ brief, gate }: { brief: Brief; gate: GateResult }) {
+  const sectionLabels: Record<string, string> = brief.archetype
+    ? Object.fromEntries(ARCHETYPE_SECTIONS[brief.archetype].map((s) => [s.key, s.label]))
+    : {};
+  const decidedSections = brief.sections.filter((s) => s.willInclude !== null);
+
+  return (
+    <section className="flex min-h-[420px] flex-col rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">Brief</h2>
+        <span
+          className={[
+            "rounded-full px-2.5 py-0.5 text-xs font-medium",
+            gate.canComplete ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
+          ].join(" ")}
+        >
+          {gate.canComplete ? "Hazır" : `${gate.missing.length} eksik`}
+        </span>
+      </div>
+
+      <div className="mt-3 flex-1 space-y-4 overflow-y-auto pr-1" style={{ maxHeight: 440 }}>
+        <Group title="İşletme">
+          <Fact label="Ad" value={brief.business.name} />
+          <Fact label="Sektör" value={brief.business.sector} />
+          <Fact label="Arketip" value={brief.archetype} />
+          <Fact label="Slogan" value={brief.business.tagline} />
+          <Fact label="Bölge" value={brief.business.region} />
+          <Fact label="Ton" value={brief.brand.tone} />
+          <Fact label="Ana hedef" value={brief.cta.primaryGoal} />
+          <Fact label="Termin" value={brief.deadline} />
+        </Group>
+
+        <Group title="İletişim">
+          <Fact label="Telefon" value={brief.contact.phone} />
+          <Fact label="E-posta" value={brief.contact.email} />
+          <Fact label="Adres" value={brief.contact.address} />
+          <Fact label="Saatler" value={brief.contact.hours} />
+          <Fact label="Instagram" value={brief.social.instagram} />
+        </Group>
+
+        <Group title="İçerik & marka">
+          <Fact label="Logo" value={yesNo(brief.brand.hasLogo)} />
+          <Fact label="Metin sizde mi" value={yesNo(brief.contentSources.hasText)} />
+          <Fact label="Görsel sizde mi" value={yesNo(brief.contentSources.hasPhotos)} />
+        </Group>
+
+        {decidedSections.length > 0 && (
+          <Group title="Sayfa bölümleri">
+            <ul className="space-y-1.5">
+              {decidedSections.map((s) => (
+                <li key={s.key} className="text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-gray-800">
+                      {sectionLabels[s.key] ?? s.key}
+                    </span>
+                    <span className={s.willInclude ? "text-xs text-indigo-600" : "text-xs text-gray-400"}>
+                      {s.willInclude
+                        ? s.contentSource
+                          ? (CONTENT_SOURCE_LABELS[s.contentSource] ?? s.contentSource)
+                          : "kaynak?"
+                        : "yok"}
+                    </span>
+                  </div>
+                  {s.willInclude && s.keyMessage && (
+                    <p className="mt-0.5 text-xs text-gray-500">{s.keyMessage}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Group>
+        )}
+
+        {brief.featureDecisions.length > 0 && (
+          <Group title="Özellikler">
+            <div className="flex flex-wrap gap-1.5">
+              {brief.featureDecisions.map((d) => (
+                <span
+                  key={d.feature}
+                  className={[
+                    "rounded-full px-2 py-0.5 text-xs",
+                    d.enabled
+                      ? "bg-indigo-100 text-indigo-700"
+                      : "bg-gray-200 text-gray-500 line-through",
+                  ].join(" ")}
+                >
+                  {FEATURE_LABELS[d.feature] ?? d.feature}
+                </span>
+              ))}
+            </div>
+          </Group>
+        )}
+
+        {brief.notes && (
+          <Group title="Görüşme notları">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-gray-600">
+              {brief.notes}
+            </p>
+          </Group>
+        )}
+
+        {!gate.canComplete && gate.missing.length > 0 && (
+          <div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-500">
+              Eksikler ({gate.missing.length})
+            </div>
+            <ul className="space-y-1 rounded-xl bg-amber-50 px-3 py-2 ring-1 ring-amber-100">
+              {gate.missing.slice(0, 8).map((m) => (
+                <li key={m.gate + m.field} className="text-xs text-amber-800">
+                  • {m.reason}
+                </li>
+              ))}
+              {gate.missing.length > 8 && (
+                <li className="text-xs text-amber-600">+{gate.missing.length - 8} daha…</li>
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <button
+        type="button"
+        disabled={!gate.canComplete}
+        className="mt-4 w-full rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+      >
+        {gate.canComplete ? "Brief'i onayla" : "Görüşme sürüyor…"}
+      </button>
+    </section>
+  );
+}
+
 // Always-visible escalation to a human (placeholder action for now).
 function HumanHandoffButton() {
   const [requested, setRequested] = useState(false);
   return (
-    <div className="fixed right-4 top-4 z-10 flex flex-col items-end gap-2">
+    <div className="flex flex-col items-end gap-2">
       <button
         type="button"
         onClick={() => setRequested(true)}
-        className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+        className="rounded-full border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
       >
         İnsanla devam et
       </button>
       {requested && (
-        <span className="max-w-[220px] rounded-lg bg-gray-900 px-3 py-1.5 text-right text-xs text-white">
+        <span className="absolute top-14 z-20 max-w-[220px] rounded-lg bg-gray-900 px-3 py-1.5 text-right text-xs text-white shadow-lg">
           Talebiniz alındı — bir temsilci sizinle iletişime geçecek (yakında).
         </span>
       )}
