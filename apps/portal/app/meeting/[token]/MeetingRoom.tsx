@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Brief, GateResult } from "@kareya/schemas";
 
@@ -219,6 +219,61 @@ function BriefPanel({ brief, gate }: { brief: Brief; gate: GateResult }) {
   );
 }
 
+// Consultant avatar: two looping clips (speaking / listening) crossfaded by the
+// agent's mode (KAR-25). Both play muted; opacity toggles on mode change so the
+// switch is smooth. Honors prefers-reduced-motion with a static poster frame.
+function AvatarVideo({ speaking }: { speaking: boolean }) {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  if (reduced) {
+    return (
+      <video
+        src="/avatar/listening.mp4"
+        poster="/avatar/poster.jpg"
+        muted
+        playsInline
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+    );
+  }
+
+  return (
+    <>
+      <video
+        src="/avatar/listening.mp4"
+        poster="/avatar/poster.jpg"
+        autoPlay
+        muted
+        loop
+        playsInline
+        className={[
+          "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
+          speaking ? "opacity-0" : "opacity-100",
+        ].join(" ")}
+      />
+      <video
+        src="/avatar/speaking.mp4"
+        poster="/avatar/poster.jpg"
+        autoPlay
+        muted
+        loop
+        playsInline
+        className={[
+          "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
+          speaking ? "opacity-100" : "opacity-0",
+        ].join(" ")}
+      />
+    </>
+  );
+}
+
 // Live voice panel: connect/disconnect + connection status + talk indicator.
 // Falls back to a "not configured yet" state when the server has no voice env.
 function VoicePanel({
@@ -245,17 +300,14 @@ function VoicePanel({
       <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-4 text-center">
         <div
           className={[
-            "flex h-20 w-20 items-center justify-center rounded-full transition",
-            connected && mode === "speaking"
-              ? "animate-pulse bg-blue-500"
-              : connected
-                ? "bg-blue-100"
-                : connecting
-                  ? "animate-pulse bg-gray-200"
-                  : "bg-gray-100",
+            "relative h-44 w-44 overflow-hidden rounded-2xl bg-gray-100 shadow-inner ring-2 transition-colors duration-300",
+            connected && mode === "speaking" ? "ring-blue-400" : "ring-transparent",
           ].join(" ")}
         >
-          <span className="text-2xl">🎙️</span>
+          <AvatarVideo speaking={connected && mode === "speaking"} />
+          {connecting && (
+            <div className="absolute inset-0 animate-pulse bg-gray-200/60" />
+          )}
         </div>
 
         {!voiceConfigured ? (
