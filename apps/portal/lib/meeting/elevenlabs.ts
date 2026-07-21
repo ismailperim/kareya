@@ -19,6 +19,7 @@ export class ElevenLabsSession implements MeetingSession {
   constructor(
     private readonly conversationToken: string,
     private readonly callbacks: MeetingSessionCallbacks,
+    private readonly options: { dynamicVariables?: Record<string, string> } = {},
   ) {}
 
   async start(): Promise<void> {
@@ -26,6 +27,7 @@ export class ElevenLabsSession implements MeetingSession {
     this.conversation = await Conversation.startSession({
       conversationToken: this.conversationToken,
       connectionType: "webrtc",
+      dynamicVariables: this.options.dynamicVariables,
       // v2 brief-collection tools (KAR-22). Each forwards to the vendor-agnostic
       // callback; the room applies it to the Brief + gate and logs it. The
       // callback's return value is passed back to the agent (used by
