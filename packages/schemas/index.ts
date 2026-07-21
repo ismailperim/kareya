@@ -1,14 +1,7 @@
-// Kareya shared contracts (Brief JSON / Site JSON / ChangeOps).
-// Consumed as the single source of truth by the portal, the
-// renderer/component-kit, and the agent workers. Real schemas (zod
-// validation) arrive in later tickets.
+// Kareya shared contracts (Brief v1 / Site JSON / ChangeOps).
+// Single source of truth consumed by the portal, the voice agent tools, the
+// completeness gate, and the renderer/component-kit.
 
-export const SCHEMAS_VERSION = "0.0.0";
+export const SCHEMAS_VERSION = "0.1.0";
 
-/** Live brief-panel draft in the meeting room (KAR-15 stub). */
-export type BriefDraft = {
-  businessName?: string;
-  sector?: string;
-  hasLogo?: boolean;
-  referenceSite?: string;
-};
+export * from "./brief";
