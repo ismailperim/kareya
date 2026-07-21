@@ -12,7 +12,7 @@ const nextConfig = {
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
 
   // Let Next transpile workspace packages (monorepo).
-  transpilePackages: ["@kareya/schemas"],
+  transpilePackages: ["@kareya/schemas", "@kareya/site-gen"],
 };
 
 export default nextConfig;

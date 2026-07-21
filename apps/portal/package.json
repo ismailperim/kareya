@@ -22,7 +22,8 @@
     "aws4fetch": "^1.0.20",
     "next": "^15.5.18",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@kareya/site-gen": "*"
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.0.0",

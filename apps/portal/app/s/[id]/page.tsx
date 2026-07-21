@@ -4,7 +4,7 @@ import { DEMO_SITE } from "@/components/site-kit/demo-site";
 import { SiteRenderer } from "@/components/site-kit/SiteRenderer";
 import { isDbConfigured } from "@/lib/db";
 import { getDraft } from "@/lib/meeting-repo";
-import { briefToSite } from "@/lib/site-generator/assemble";
+import { briefToSite } from "@kareya/site-gen";
 
 // Per-site preview (KAR-32/33). If `id` is a meeting token with a saved brief,
 // assemble a Site JSON from that brief and render it (the meeting → live site
