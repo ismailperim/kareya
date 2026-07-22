@@ -20,22 +20,46 @@ export type ClaimedJob = {
 
 /**
  * Atomically claim the oldest queued job (single statement — safe over the
- * Neon HTTP driver; SKIP LOCKED prevents double-processing).
+ * Neon HTTP driver; SKIP LOCKED prevents double-processing). `types` scopes
+ * the claim to this runner's role (KAR-63: writer vs builder).
  */
-export async function claimNextJob(): Promise<ClaimedJob | null> {
-  const rows = await sql()`
-    update job
-    set status = 'running', attempts = attempts + 1, started_at = now()
-    where id = (
-      select id from job
-      where status = 'queued'
-      order by created_at
-      limit 1
-      for update skip locked
-    )
-    returning id, type, payload, attempts
-  `;
+export async function claimNextJob(types?: string[]): Promise<ClaimedJob | null> {
+  const rows = types?.length
+    ? await sql()`
+        update job
+        set status = 'running', attempts = attempts + 1, started_at = now()
+        where id = (
+          select id from job
+          where status = 'queued' and type = ANY(${types})
+          order by created_at
+          limit 1
+          for update skip locked
+        )
+        returning id, type, payload, attempts
+      `
+    : await sql()`
+        update job
+        set status = 'running', attempts = attempts + 1, started_at = now()
+        where id = (
+          select id from job
+          where status = 'queued'
+          order by created_at
+          limit 1
+          for update skip locked
+        )
+        returning id, type, payload, attempts
+      `;
   return rows.length ? (rows[0] as unknown as ClaimedJob) : null;
+}
+
+/** Enqueue a follow-up job (KAR-63 chain: write_code → build_publish). */
+export async function enqueueJob(type: string, payload: unknown): Promise<string> {
+  const rows = await sql()`
+    insert into job (type, payload, status)
+    values (${type}, ${JSON.stringify(payload)}::jsonb, 'queued')
+    returning id
+  `;
+  return rows[0].id as string;
 }
 
 export async function appendJobLog(id: string, line: string): Promise<void> {

@@ -42,10 +42,28 @@ export function isPhase(v: unknown): v is Phase {
 
 // ---- Job types (queue contract between the portal and the runner) ----
 
-export const JOB_TYPES = ["build_site", "revise_site"] as const;
+// write_code (LLM agent -> sources/) and build_publish (sources/ -> sites/) are
+// the v2 split (KAR-63): brief approval enqueues write_code, which chains a
+// build_publish. build_site remains as the legacy all-in-one job.
+export const JOB_TYPES = ["build_site", "revise_site", "write_code", "build_publish"] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
-/** Payload for a build_site job. */
+/** Runner roles (KAR-63): same binary, RUNNER_ROLE decides which jobs it claims. */
+export const RUNNER_ROLES: Record<string, string[]> = {
+  all: [...JOB_TYPES],
+  writer: ["write_code", "revise_site", "build_site"],
+  builder: ["build_publish"],
+};
+export type RunnerRole = keyof typeof RUNNER_ROLES;
+
+/** Payload for a build_publish job (sources/<slug> -> astro build -> sites/<slug>). */
+export type BuildPublishJobPayload = {
+  token: string;
+  projectId?: string;
+  slug?: string;
+};
+
+/** Payload for build_site (legacy all-in-one) and write_code jobs. */
 export type BuildSiteJobPayload = {
   token: string;
   /** Version in the `brief` table to build from (latest if omitted). */
