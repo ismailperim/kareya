@@ -19,6 +19,7 @@ export const MEETING_TOOL_NAMES = [
   "set_feature",
   "append_note",
   "check_completeness",
+  "request_revision",
 ] as const;
 
 const SECTION_KEYS = Object.fromEntries(
@@ -131,6 +132,20 @@ export const MEETING_TOOLS = [
   },
   {
     type: "client",
+    name: "request_revision",
+    description:
+      "Site YAYINDAYKEN müşterinin istediği değişikliği ilet (ör. 'başlığı değiştir', 'SSS bölümünü kaldır'). Talebi müşterinin kelimeleriyle, net ve eksiksiz aktar. Ekip uygular, birkaç dakika içinde siteye yansır.",
+    expects_response: true,
+    parameters: {
+      type: "object",
+      required: ["instruction"],
+      properties: {
+        instruction: { type: "string", description: "Değişiklik talebi (net, tek istek)" },
+      },
+    },
+  },
+  {
+    type: "client",
     name: "check_completeness",
     description:
       "Brief'te teklif + site için hâlâ eksik olan bilgileri döndürür. Görüşmeyi toparlamadan önce çağır ve eksikleri sor.",
@@ -149,6 +164,14 @@ Aşağıda bu görüşmede şimdiye kadar toplanmış bilgiler var. DOLUYSA: bun
 --- Toplanan bilgiler ---
 {{collected_summary}}
 --- son ---
+
+## Site durumu: {{site_status}}
+Site durumu "yayında" ise ARTIK BRIEF TOPLAMA MODUNDA DEĞİLSİN — revizyon modundasın:
+- Müşteriye sitesinin hazır olduğunu, sağdaki panelden önizleyebileceğini söyle; "ne değiştirmek istersiniz?" diye sor.
+- Her değişiklik talebini netleştir (hangi bölüm, ne olacak) ve request_revision aracıyla İLET. Aracın cevabını müşteriye kısaca aktar ("talebiniz alındı, birkaç dakika içinde yansır").
+- Talep başına TEK request_revision çağır; birden çok istek varsa sırayla, tek tek.
+- Kapsam dışı/büyük istekler (yeni sayfa türü, e-ticaret vb.) için: "bunu ekibimiz ek kapsamda değerlendirir" de, request_revision ÇAĞIRMA, append_note ile not düş.
+- Brief sorularını tekrar SORMA. Kısa konuş.
 
 ## Tarz
 - Form dolduran bir bot gibi DEĞİL; kıdemli, meraklı bir danışman gibi konuş. Tek seferde tek soru sor, cevabı gerçekten dinle, takip soruları sor, merakını takip et.
