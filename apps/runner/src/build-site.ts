@@ -9,6 +9,7 @@ import {
   generateAstroProject,
   pickLlm,
   polishSite,
+  relativizeAssetPaths,
   uploadDirToR2,
 } from "@kareya/site-gen";
 
@@ -74,10 +75,8 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
   }
 
-  // 2c) Generate the Astro project from the (possibly polished) site. The
-  // basePath matches the R2 key prefix so asset URLs resolve under
-  // preview.kareya.app/sites/<token>/.
-  const files = generateAstroProject(site, { basePath: `/sites/${token}/` });
+  // 2c) Generate the Astro project from the (possibly polished) site.
+  const files = generateAstroProject(site);
   await log(`astro project generated → ${Object.keys(files).length} files`);
 
   // 3) Materialize into an isolated temp worktree.
@@ -94,7 +93,10 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     run("npm install --no-audit --no-fund --silent", work);
     await log("astro build…");
     run("npm run build", work);
-    await log("static build complete");
+    // Relative asset paths so the site works under a subdirectory
+    // (preview.kareya.app/sites/<token>/) AND at a customer domain root.
+    const rewritten = relativizeAssetPaths(join(work, "dist"));
+    await log(`static build complete (assets relativized in ${rewritten} page)`);
 
     // 5) Publish dist/ to R2.
     const r2Prefix = `sites/${token}`;
