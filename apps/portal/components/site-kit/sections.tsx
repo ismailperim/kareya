@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type { SiteSection } from "@kareya/schemas";
 
-// Component kit v1 (KAR-31): one component per Site JSON section type, driven
-// entirely by typed props. The brand color is read from the `--brand` CSS var
-// set by the renderer, so components stay brand-agnostic. Deterministic output.
+// Component kit v2 (KAR-31/52): one component per Site JSON section type,
+// driven entirely by typed props. Premium pass: display typography, layered
+// hero, refined cards/spacing. Markup mirrors the Astro generator
+// (packages/site-gen/generate.ts) — keep them in sync.
 
 type Hero = Extract<SiteSection, { type: "hero" }>;
 type Services = Extract<SiteSection, { type: "services" }>;
@@ -19,35 +20,78 @@ const brandBg = { backgroundColor: "var(--brand)" } as const;
 const tint = (pct: number) => ({
   backgroundColor: `color-mix(in srgb, var(--brand) ${pct}%, white)`,
 });
+export const displayFont = {
+  fontFamily: '"Sora Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif',
+} as const;
 
-function SectionTitle({ children }: { children: ReactNode }) {
+export type SectionCtx = { hasServices: boolean };
+
+function SectionHeading({ kicker, children }: { kicker: string; children: ReactNode }) {
   return (
     <div className="text-center">
-      <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={brandBg} />
-      <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">{children}</h2>
+      <div className="text-xs font-semibold uppercase tracking-[0.2em]" style={brand}>
+        {kicker}
+      </div>
+      <h2
+        className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
+        style={displayFont}
+      >
+        {children}
+      </h2>
     </div>
   );
 }
 
-export function HeroSection({ s }: { s: Hero }) {
+export function HeroSection({ s, ctx }: { s: Hero; ctx: SectionCtx }) {
   return (
-    <section className="relative overflow-hidden" style={tint(8)}>
-      <div className="mx-auto max-w-4xl px-6 py-24 text-center sm:py-32">
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+    <section className="relative overflow-hidden">
+      <div className="absolute inset-0" style={tint(7)} />
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "radial-gradient(color-mix(in srgb, var(--brand) 22%, white) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
+        }}
+      />
+      <div
+        className="absolute -right-32 -top-32 h-96 w-96 rounded-full blur-3xl"
+        style={{ background: "color-mix(in srgb, var(--brand) 16%, white)" }}
+      />
+      <div className="relative mx-auto max-w-4xl px-6 py-28 text-center sm:py-36">
+        <h1
+          className="text-4xl font-bold leading-tight tracking-tight text-gray-900 sm:text-6xl"
+          style={displayFont}
+        >
           {s.headline}
         </h1>
         {s.subheadline && (
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-gray-600">{s.subheadline}</p>
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 sm:text-xl">
+            {s.subheadline}
+          </p>
         )}
-        {s.ctaLabel && (
-          <a
-            href={s.ctaHref}
-            className="mt-8 inline-block rounded-xl px-7 py-3.5 font-medium text-white shadow-lg transition hover:opacity-90"
-            style={brandBg}
-          >
-            {s.ctaLabel}
-          </a>
-        )}
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          {s.ctaLabel && (
+            <a
+              href={s.ctaHref}
+              className="rounded-xl px-8 py-4 font-semibold text-white shadow-lg transition hover:opacity-90 hover:shadow-xl"
+              style={{
+                ...brandBg,
+                boxShadow: "0 10px 25px -5px color-mix(in srgb, var(--brand) 40%, transparent)",
+              }}
+            >
+              {s.ctaLabel}
+            </a>
+          )}
+          {ctx.hasServices && (
+            <a
+              href="#hizmetler"
+              className="rounded-xl border border-gray-200 bg-white/80 px-8 py-4 font-semibold text-gray-700 backdrop-blur transition hover:bg-white"
+            >
+              Hizmetlerimiz
+            </a>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -55,22 +99,26 @@ export function HeroSection({ s }: { s: Hero }) {
 
 export function ServicesSection({ s }: { s: Services }) {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-16">
-      <SectionTitle>{s.title}</SectionTitle>
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <section id="hizmetler" className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+      <SectionHeading kicker="Neler yapıyoruz">{s.title}</SectionHeading>
+      <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {s.items.map((it, i) => (
           <div
             key={i}
-            className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
+            className="group rounded-2xl bg-white p-7 shadow-sm ring-1 ring-gray-900/5 transition hover:-translate-y-1 hover:shadow-xl"
           >
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl font-semibold text-white"
+              className="flex h-11 w-11 items-center justify-center rounded-xl font-bold text-white transition group-hover:scale-105"
               style={brandBg}
             >
-              {i + 1}
+              {String(i + 1).padStart(2, "0")}
             </div>
-            <h3 className="mt-4 font-semibold text-gray-900">{it.name}</h3>
-            {it.description && <p className="mt-1.5 text-sm text-gray-600">{it.description}</p>}
+            <h3 className="mt-5 text-lg font-semibold text-gray-900" style={displayFont}>
+              {it.name}
+            </h3>
+            {it.description && (
+              <p className="mt-2 text-[15px] leading-relaxed text-gray-600">{it.description}</p>
+            )}
           </div>
         ))}
       </div>
@@ -80,13 +128,11 @@ export function ServicesSection({ s }: { s: Services }) {
 
 export function AboutSection({ s }: { s: About }) {
   return (
-    <section className="px-6 py-16" style={tint(5)}>
+    <section id="hakkimizda" className="px-6 py-20 sm:py-24" style={tint(5)}>
       <div className="mx-auto max-w-3xl text-center">
-        <SectionTitle>{s.title}</SectionTitle>
+        <SectionHeading kicker="Bizi tanıyın">{s.title}</SectionHeading>
         {s.body && (
-          <p className="mt-6 whitespace-pre-line text-lg leading-relaxed text-gray-700">
-            {s.body}
-          </p>
+          <p className="mt-8 whitespace-pre-line text-lg leading-8 text-gray-700">{s.body}</p>
         )}
       </div>
     </section>
@@ -95,19 +141,23 @@ export function AboutSection({ s }: { s: About }) {
 
 export function WhyUsSection({ s }: { s: WhyUs }) {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-16">
-      <SectionTitle>{s.title}</SectionTitle>
-      <div className="mt-10 grid gap-8 sm:grid-cols-3">
+    <section id="neden-biz" className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+      <SectionHeading kicker="Farkımız">{s.title}</SectionHeading>
+      <div className="mt-12 grid gap-10 sm:grid-cols-3">
         {s.points.map((p, i) => (
-          <div key={i}>
+          <div key={i} className="text-center sm:text-left">
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-full font-semibold text-white"
+              className="mx-auto flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold text-white sm:mx-0"
               style={brandBg}
             >
               ✓
             </div>
-            <h3 className="mt-3 font-semibold text-gray-900">{p.title}</h3>
-            {p.description && <p className="mt-1 text-sm text-gray-600">{p.description}</p>}
+            <h3 className="mt-4 text-lg font-semibold text-gray-900" style={displayFont}>
+              {p.title}
+            </h3>
+            {p.description && (
+              <p className="mt-2 text-[15px] leading-relaxed text-gray-600">{p.description}</p>
+            )}
           </div>
         ))}
       </div>
@@ -117,19 +167,30 @@ export function WhyUsSection({ s }: { s: WhyUs }) {
 
 export function TestimonialsSection({ s }: { s: Testimonials }) {
   return (
-    <section className="px-6 py-16" style={tint(5)}>
-      <div className="mx-auto max-w-5xl">
-        <SectionTitle>{s.title}</SectionTitle>
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <section id="yorumlar" className="px-6 py-20 sm:py-24" style={tint(5)}>
+      <div className="mx-auto max-w-6xl">
+        <SectionHeading kicker="Referanslar">{s.title}</SectionHeading>
+        <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {s.items.map((t, i) => (
-            <figure key={i} className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-              <div className="text-4xl leading-none" style={brand}>
+            <figure
+              key={i}
+              className="flex flex-col rounded-2xl bg-white p-7 shadow-sm ring-1 ring-gray-900/5"
+            >
+              <div className="text-5xl leading-none" style={brand}>
                 &ldquo;
               </div>
-              <blockquote className="mt-1 text-gray-700">{t.quote}</blockquote>
+              <blockquote className="mt-2 flex-1 leading-relaxed text-gray-700">
+                {t.quote}
+              </blockquote>
               {t.author && (
-                <figcaption className="mt-3 text-sm font-medium text-gray-500">
-                  — {t.author}
+                <figcaption className="mt-5 flex items-center gap-3">
+                  <span
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white"
+                    style={brandBg}
+                  >
+                    {t.author.trim().charAt(0).toUpperCase()}
+                  </span>
+                  <span className="text-sm font-medium text-gray-600">{t.author}</span>
                 </figcaption>
               )}
             </figure>
@@ -142,21 +203,23 @@ export function TestimonialsSection({ s }: { s: Testimonials }) {
 
 export function FaqSection({ s }: { s: Faq }) {
   return (
-    <section className="mx-auto max-w-3xl px-6 py-16">
-      <SectionTitle>{s.title}</SectionTitle>
-      <div className="mt-8 space-y-3">
+    <section id="sss" className="mx-auto max-w-3xl px-6 py-20 sm:py-24">
+      <SectionHeading kicker="Merak edilenler">{s.title}</SectionHeading>
+      <div className="mt-10 space-y-3">
         {s.items.map((it, i) => (
           <details
             key={i}
-            className="group rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+            className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5 transition open:shadow-md"
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-medium text-gray-900">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-gray-900">
               {it.question}
-              <span className="transition group-open:rotate-45" style={brand}>
+              <span className="text-xl transition group-open:rotate-45" style={brand}>
                 +
               </span>
             </summary>
-            {it.answer && <p className="mt-2 text-sm leading-relaxed text-gray-600">{it.answer}</p>}
+            {it.answer && (
+              <p className="mt-3 text-[15px] leading-relaxed text-gray-600">{it.answer}</p>
+            )}
           </details>
         ))}
       </div>
@@ -166,8 +229,11 @@ export function FaqSection({ s }: { s: Faq }) {
 
 function ContactRow({ icon, label }: { icon: string; label: string }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg" style={tint(12)}>
+    <div className="flex items-center gap-4">
+      <span
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg"
+        style={tint(12)}
+      >
         {icon}
       </span>
       <span className="text-gray-700">{label}</span>
@@ -176,35 +242,39 @@ function ContactRow({ icon, label }: { icon: string; label: string }) {
 }
 
 export function ContactSection({ s }: { s: Contact }) {
+  const rows = [
+    s.phone && <ContactRow key="p" icon="📞" label={s.phone} />,
+    s.whatsapp && <ContactRow key="w" icon="💬" label={`WhatsApp: ${s.whatsapp}`} />,
+    s.email && <ContactRow key="e" icon="✉️" label={s.email} />,
+    s.address && <ContactRow key="a" icon="📍" label={s.address} />,
+    s.hours && <ContactRow key="h" icon="🕐" label={s.hours} />,
+  ].filter(Boolean);
+
+  const inputCls =
+    "w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-transparent focus:ring-2";
+  const ringStyle = { "--tw-ring-color": "var(--brand)" } as CSSProperties;
+
   return (
-    <section id="iletisim" className="mx-auto max-w-5xl px-6 py-16">
-      <SectionTitle>{s.title}</SectionTitle>
-      <div className="mt-10 grid gap-8 md:grid-cols-2">
-        <div className="space-y-3">
-          {s.phone && <ContactRow icon="📞" label={s.phone} />}
-          {s.whatsapp && <ContactRow icon="💬" label={`WhatsApp: ${s.whatsapp}`} />}
-          {s.email && <ContactRow icon="✉️" label={s.email} />}
-          {s.address && <ContactRow icon="📍" label={s.address} />}
-          {s.hours && <ContactRow icon="🕐" label={s.hours} />}
+    <section id="iletisim" className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+      <SectionHeading kicker="Bize ulaşın">{s.title}</SectionHeading>
+      <div className="mt-12 grid items-start gap-10 md:grid-cols-2">
+        <div className="space-y-5">
+          {rows.length ? (
+            rows
+          ) : (
+            <p className="text-gray-500">
+              İletişim bilgilerimiz çok yakında burada olacak — şimdilik formdan yazabilirsiniz.
+            </p>
+          )}
         </div>
         {s.showForm && (
-          <form className="space-y-3 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-            <input
-              placeholder="Adınız"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
-            />
-            <input
-              placeholder="E-posta / Telefon"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
-            />
-            <textarea
-              placeholder="Mesajınız"
-              rows={3}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
-            />
+          <form className="space-y-4 rounded-2xl bg-white p-7 shadow-sm ring-1 ring-gray-900/5">
+            <input placeholder="Adınız" className={inputCls} style={ringStyle} />
+            <input placeholder="E-posta / Telefon" className={inputCls} style={ringStyle} />
+            <textarea placeholder="Mesajınız" rows={4} className={inputCls} style={ringStyle} />
             <button
               type="button"
-              className="w-full rounded-lg px-4 py-2.5 font-medium text-white transition hover:opacity-90"
+              className="w-full rounded-xl px-5 py-3.5 font-semibold text-white transition hover:opacity-90"
               style={brandBg}
             >
               Gönder
@@ -217,10 +287,10 @@ export function ContactSection({ s }: { s: Contact }) {
 }
 
 // Deterministic section → component mapping (the "registry").
-export function renderSection(section: SiteSection, key: number) {
+export function renderSection(section: SiteSection, key: number, ctx: SectionCtx) {
   switch (section.type) {
     case "hero":
-      return <HeroSection key={key} s={section} />;
+      return <HeroSection key={key} s={section} ctx={ctx} />;
     case "services":
       return <ServicesSection key={key} s={section} />;
     case "about":

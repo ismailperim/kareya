@@ -39,9 +39,14 @@ export async function claimNextJob(): Promise<ClaimedJob | null> {
 }
 
 export async function appendJobLog(id: string, line: string): Promise<void> {
-  const stamped = `[${new Date().toISOString()}] ${line}`;
-  await sql()`update job set logs = logs || ${stamped + "\n"} where id = ${id}`;
   console.log(`  ${line}`);
+  // A transient DB blip on a log write must never kill the build itself.
+  try {
+    const stamped = `[${new Date().toISOString()}] ${line}`;
+    await sql()`update job set logs = logs || ${stamped + "\n"} where id = ${id}`;
+  } catch (err) {
+    console.warn(`  (log write failed: ${err instanceof Error ? err.message : err})`);
+  }
 }
 
 export async function finishJob(id: string, result: unknown): Promise<void> {
