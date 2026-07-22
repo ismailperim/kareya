@@ -204,17 +204,21 @@ export type SessionSummary = {
   updated_at: string;
   business_name: string | null;
   has_draft: boolean;
+  /** Where the project publishes (KAR-39); sources/ is derived from it (KAR-64). */
+  r2_prefix: string | null;
 };
 
 /** Recent meeting sessions for the ops dashboard (KAR-47). */
 export async function listSessions(limit = 50): Promise<SessionSummary[]> {
   const sql = getDb();
   const rows = await sql`
-    select token, phase, updated_at,
-           current_brief->'business'->>'name' as business_name,
-           (current_brief is not null) as has_draft
-    from meeting_session
-    order by updated_at desc
+    select s.token, s.phase, s.updated_at,
+           s.current_brief->'business'->>'name' as business_name,
+           (s.current_brief is not null) as has_draft,
+           p.r2_prefix
+    from meeting_session s
+    left join project p on p.id = s.project_id
+    order by s.updated_at desc
     limit ${limit}
   `;
   return rows as unknown as SessionSummary[];
