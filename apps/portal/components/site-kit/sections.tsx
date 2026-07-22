@@ -11,6 +11,7 @@ type Services = Extract<SiteSection, { type: "services" }>;
 type About = Extract<SiteSection, { type: "about" }>;
 type WhyUs = Extract<SiteSection, { type: "whyUs" }>;
 type Testimonials = Extract<SiteSection, { type: "testimonials" }>;
+type Faq = Extract<SiteSection, { type: "faq" }>;
 type Contact = Extract<SiteSection, { type: "contact" }>;
 
 const brand = { color: "var(--brand)" } as const;
@@ -139,6 +140,30 @@ export function TestimonialsSection({ s }: { s: Testimonials }) {
   );
 }
 
+export function FaqSection({ s }: { s: Faq }) {
+  return (
+    <section className="mx-auto max-w-3xl px-6 py-16">
+      <SectionTitle>{s.title}</SectionTitle>
+      <div className="mt-8 space-y-3">
+        {s.items.map((it, i) => (
+          <details
+            key={i}
+            className="group rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5"
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-medium text-gray-900">
+              {it.question}
+              <span className="transition group-open:rotate-45" style={brand}>
+                +
+              </span>
+            </summary>
+            {it.answer && <p className="mt-2 text-sm leading-relaxed text-gray-600">{it.answer}</p>}
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ContactRow({ icon, label }: { icon: string; label: string }) {
   return (
     <div className="flex items-center gap-3">
@@ -204,6 +229,8 @@ export function renderSection(section: SiteSection, key: number) {
       return <WhyUsSection key={key} s={section} />;
     case "testimonials":
       return <TestimonialsSection key={key} s={section} />;
+    case "faq":
+      return <FaqSection key={key} s={section} />;
     case "contact":
       return <ContactSection key={key} s={section} />;
     default:
