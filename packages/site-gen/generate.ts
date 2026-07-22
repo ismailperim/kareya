@@ -15,6 +15,46 @@ function esc(v: unknown): string {
     .replaceAll('"', "&quot;");
 }
 
+
+// ---- Contrast guard (deterministic) ----
+// Pastel palettes (customer-chosen) must never produce white-on-light buttons
+// or light-on-white text. Two derived tokens: --on-brand (text ON a brand
+// background) and --brand-ink (brand-hued text on light surfaces, darkened
+// until readable). Dark palettes pass through unchanged.
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function luminance(rgb: [number, number, number]): number {
+  const [r, g, b] = rgb.map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Text color for use on top of the brand color. */
+export function onBrand(brandHex: string): string {
+  const rgb = hexToRgb(brandHex);
+  return rgb && luminance(rgb) > 0.45 ? "#1c1d21" : "#ffffff";
+}
+
+/** Brand-hued TEXT color, darkened until readable on light surfaces. */
+export function brandInk(brandHex: string): string {
+  let rgb = hexToRgb(brandHex);
+  if (!rgb) return brandHex;
+  // L <= 0.18 => >= 4.5:1 against white — AA for small text (kickers, links).
+  let guard = 0;
+  while (luminance(rgb) > 0.18 && guard++ < 20) {
+    rgb = rgb.map((v) => Math.max(0, Math.round(v * 0.85))) as [number, number, number];
+  }
+  return `#${rgb.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
 const tint = (pct: number) =>
   `background: color-mix(in srgb, var(--brand) ${pct}%, var(--surface));`;
 
@@ -48,7 +88,7 @@ function monogramInitials(name: string): string {
 }
 
 function monogram(name: string): string {
-  return `<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white" style="background: var(--brand);">${esc(monogramInitials(name))}</span>`;
+  return `<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold" style="background: var(--brand); color: var(--on-brand);">${esc(monogramInitials(name))}</span>`;
 }
 
 type Ctx = {
@@ -61,7 +101,7 @@ type Ctx = {
 function sectionHeading(kicker: string, title: string): string {
   return `
       <div class="text-center">
-        <div class="text-xs font-semibold uppercase tracking-[0.2em]" style="color: var(--brand);">${esc(kicker)}</div>
+        <div class="text-xs font-semibold uppercase tracking-[0.2em]" style="color: var(--brand-ink);">${esc(kicker)}</div>
         <h2 class="mt-2 text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl" style="color: var(--ink);">${esc(title)}</h2>
       </div>`;
 }
@@ -71,7 +111,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
     case "hero": {
       const ctas = (aligned: boolean) => `
         <div class="mt-10 flex flex-wrap items-center ${aligned ? "justify-center lg:justify-start" : "justify-center"} gap-3">
-          ${s.ctaLabel ? `<a href="${esc(s.ctaHref)}" class="rounded-xl px-8 py-4 font-semibold text-white shadow-lg transition hover:opacity-90 hover:shadow-xl" style="background-color: var(--brand); box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--brand) 40%, transparent);">${esc(s.ctaLabel)}</a>` : ""}
+          ${s.ctaLabel ? `<a href="${esc(s.ctaHref)}" class="rounded-xl px-8 py-4 font-semibold shadow-lg transition hover:opacity-90 hover:shadow-xl" style="background-color: var(--brand); color: var(--on-brand); box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--brand) 40%, transparent);">${esc(s.ctaLabel)}</a>` : ""}
           ${ctx.hasServices ? `<a href="${ctx.servicesHref}" class="rounded-xl border border-gray-200 bg-white/80 px-8 py-4 font-semibold backdrop-blur transition hover:bg-white" style="color: var(--ink-soft);">Hizmetlerimiz</a>` : ""}
         </div>`;
       const bg = `
@@ -114,7 +154,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
         ${s.items
           .map(
             (it) => `<div class="text-center">
-          <div class="text-3xl font-semibold sm:text-4xl" style="color: var(--brand);">${esc(it.value)}</div>
+          <div class="text-3xl font-semibold sm:text-4xl" style="color: var(--brand-ink);">${esc(it.value)}</div>
           <div class="mt-1 text-sm" style="color: var(--ink-soft);">${esc(it.label)}</div>
         </div>`,
           )
@@ -148,7 +188,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
           ${s.steps
             .map(
               (p, i) => `<div class="relative">
-            <div class="text-4xl font-light" style="color: var(--brand);">${String(i + 1).padStart(2, "0")}</div>
+            <div class="text-4xl font-light" style="color: var(--brand-ink);">${String(i + 1).padStart(2, "0")}</div>
             <h3 class="mt-3 text-lg font-semibold" style="color: var(--ink);">${esc(p.title)}</h3>
             ${p.description ? `<p class="mt-2 text-[15px] leading-relaxed" style="color: var(--ink-soft);">${esc(p.description)}</p>` : ""}
           </div>`,
@@ -165,7 +205,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
       <div class="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
         <img src="${esc(s.imageUrl)}" alt="" class="aspect-[4/3] w-full rounded-3xl object-cover shadow-xl ring-1 ring-gray-900/10" loading="lazy" />
         <div>
-          <div class="text-xs font-semibold uppercase tracking-[0.2em]" style="color: var(--brand);">Bizi tanıyın</div>
+          <div class="text-xs font-semibold uppercase tracking-[0.2em]" style="color: var(--brand-ink);">Bizi tanıyın</div>
           <h2 class="mt-2 text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl" style="color: var(--ink);">${esc(s.title)}</h2>
           ${s.body ? `<p class="mt-6 whitespace-pre-line text-[17px] leading-8" style="color: var(--ink-soft);">${esc(s.body)}</p>` : ""}
         </div>
@@ -188,7 +228,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
         ${s.points
           .map(
             (p, i) => `<div class="text-center sm:text-left">
-          <div class="text-4xl font-light" style="color: var(--brand);">${String(i + 1).padStart(2, "0")}</div>
+          <div class="text-4xl font-light" style="color: var(--brand-ink);">${String(i + 1).padStart(2, "0")}</div>
           <h3 class="mt-3 text-lg font-semibold" style="color: var(--ink);">${esc(p.title)}</h3>
           ${p.description ? `<p class="mt-2 text-[15px] leading-relaxed" style="color: var(--ink-soft);">${esc(p.description)}</p>` : ""}
         </div>`,
@@ -209,7 +249,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
             <blockquote class="mt-2 flex-1 leading-relaxed" style="color: var(--ink-soft);">${esc(t.quote)}</blockquote>
             ${
               t.author
-                ? `<figcaption class="mt-5 flex items-center gap-3"><span class="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white" style="background-color: var(--brand);">${esc(t.author.trim().charAt(0).toUpperCase())}</span><span class="text-sm font-medium" style="color: var(--ink-soft);">${esc(t.author)}</span></figcaption>`
+                ? `<figcaption class="mt-5 flex items-center gap-3"><span class="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold" style="background-color: var(--brand); color: var(--on-brand);">${esc(t.author.trim().charAt(0).toUpperCase())}</span><span class="text-sm font-medium" style="color: var(--ink-soft);">${esc(t.author)}</span></figcaption>`
                 : ""
             }
           </figure>`,
@@ -223,8 +263,8 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
     <section class="mx-auto max-w-6xl px-6 py-12">
       <div class="relative overflow-hidden rounded-3xl px-8 py-14 text-center" style="background: var(--brand);">
         <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(white 1px, transparent 1px); background-size: 20px 20px;"></div>
-        <h2 class="relative text-2xl font-semibold tracking-tight text-white sm:text-3xl">${esc(s.headline)}</h2>
-        <a href="${esc(s.ctaHref)}" class="relative mt-6 inline-block rounded-xl bg-white px-8 py-3.5 font-semibold transition hover:opacity-90" style="color: var(--brand);">${esc(s.ctaLabel)}</a>
+        <h2 class="relative text-2xl font-semibold tracking-tight sm:text-3xl" style="color: var(--on-brand);">${esc(s.headline)}</h2>
+        <a href="${esc(s.ctaHref)}" class="relative mt-6 inline-block rounded-xl bg-white px-8 py-3.5 font-semibold transition hover:opacity-90" style="color: var(--brand-ink);">${esc(s.ctaLabel)}</a>
       </div>
     </section>`;
     case "faq":
@@ -235,7 +275,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
         ${s.items
           .map(
             (it) => `<details class="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5 transition open:shadow-md">
-          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold" style="color: var(--ink);">${esc(it.question)}<span class="text-xl transition group-open:rotate-45" style="color: var(--brand);">+</span></summary>
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold" style="color: var(--ink);">${esc(it.question)}<span class="text-xl transition group-open:rotate-45" style="color: var(--brand-ink);">+</span></summary>
           ${it.answer ? `<p class="mt-3 text-[15px] leading-relaxed" style="color: var(--ink-soft);">${esc(it.answer)}</p>` : ""}
         </details>`,
           )
@@ -263,7 +303,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
           <input placeholder="Adınız" class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-transparent focus:ring-2" style="--tw-ring-color: var(--brand);" />
           <input placeholder="E-posta / Telefon" class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-transparent focus:ring-2" style="--tw-ring-color: var(--brand);" />
           <textarea placeholder="Mesajınız" rows="4" class="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-transparent focus:ring-2" style="--tw-ring-color: var(--brand);"></textarea>
-          <button type="button" class="w-full rounded-xl px-5 py-3.5 font-semibold text-white transition hover:opacity-90" style="background-color: var(--brand);">Gönder</button>
+          <button type="button" class="w-full rounded-xl px-5 py-3.5 font-semibold transition hover:opacity-90" style="background-color: var(--brand); color: var(--on-brand);">Gönder</button>
         </form>`
         : "";
       return `
@@ -346,11 +386,11 @@ export function generateAstroProject(site: Site): Record<string, string> {
           ${navItems
             .map(
               (n) =>
-                `<a href="${n.href}" class="text-sm font-medium transition hover:opacity-70" style="color: ${multiPage && n.href === `${activeFile}.html` ? "var(--brand)" : "var(--ink-soft)"};">${esc(n.label)}</a>`,
+                `<a href="${n.href}" class="text-sm font-medium transition hover:opacity-70" style="color: ${multiPage && n.href === `${activeFile}.html` ? "var(--brand-ink)" : "var(--ink-soft)"};">${esc(n.label)}</a>`,
             )
             .join("\n          ")}
         </nav>
-        <a href="${ctx.contactHref}" class="rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90" style="background-color: var(--brand);">İletişim</a>
+        <a href="${ctx.contactHref}" class="rounded-xl px-4 py-2 text-sm font-semibold transition hover:opacity-90" style="background-color: var(--brand); color: var(--on-brand);">İletişim</a>
       </div>
     </header>`;
 
@@ -388,7 +428,7 @@ export function generateAstroProject(site: Site): Record<string, string> {
         </div>
       </div>
       <div class="border-t border-gray-900/5 py-6 text-center text-sm text-gray-500">
-        © ${esc(name)} · <a href="kvkk.html" class="underline-offset-2 hover:underline">KVKK Aydınlatma Metni</a> · <a href="https://kareya.app" class="font-medium transition hover:opacity-80" style="color: var(--brand);">kareya</a> ile hazırlandı
+        © ${esc(name)} · <a href="kvkk.html" class="underline-offset-2 hover:underline">KVKK Aydınlatma Metni</a> · <a href="https://kareya.app" class="font-medium transition hover:opacity-80" style="color: var(--brand-ink);">kareya</a> ile hazırlandı
       </div>
     </footer>`;
 
@@ -419,7 +459,7 @@ import "../styles/global.css";
     <link rel="icon" href="${faviconHref}" />
     ${faqJsonLd(page)}
   </head>
-  <body class="antialiased" style="--brand: ${esc(site.brand.primary)}; background: var(--surface); color: var(--ink-soft);">
+  <body class="antialiased" style="--brand: ${esc(site.brand.primary)}; --on-brand: ${onBrand(site.brand.primary)}; --brand-ink: ${brandInk(site.brand.primary)}; background: var(--surface); color: var(--ink-soft);">
 ${header(file)}
     <main>
 ${sections}
@@ -443,7 +483,7 @@ import "../styles/global.css";
     <meta name="robots" content="noindex" />
     <link rel="icon" href="${faviconHref}" />
   </head>
-  <body class="antialiased" style="--brand: ${esc(site.brand.primary)}; background: var(--surface); color: var(--ink-soft);">
+  <body class="antialiased" style="--brand: ${esc(site.brand.primary)}; --on-brand: ${onBrand(site.brand.primary)}; --brand-ink: ${brandInk(site.brand.primary)}; background: var(--surface); color: var(--ink-soft);">
 ${header("kvkk")}
     <main class="mx-auto max-w-3xl px-6 py-16">
       <h1 class="text-3xl font-semibold tracking-tight" style="color: var(--ink);">KVKK Aydınlatma Metni</h1>
