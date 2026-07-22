@@ -10,6 +10,7 @@ import {
   generateAstroProject,
   pickImageProvider,
   pickLlm,
+  pickLlms,
   polishSite,
   relativizeAssetPaths,
   uploadDirToR2,
@@ -61,6 +62,15 @@ export function r2Creds() {
 /** Text LLM choice for content work (Gemini first; CLAUDE_API_KEY aliased). */
 export function contentLlm() {
   return pickLlm({
+    GEMINI_API_KEY: env("GEMINI_API_KEY"),
+    ANTHROPIC_API_KEY: env("ANTHROPIC_API_KEY") ?? env("CLAUDE_API_KEY"),
+    LLM_MODEL: env("LLM_MODEL"),
+  });
+}
+
+/** All content LLMs in preference order — runtime fallback chain. */
+export function contentLlmChain() {
+  return pickLlms({
     GEMINI_API_KEY: env("GEMINI_API_KEY"),
     ANTHROPIC_API_KEY: env("ANTHROPIC_API_KEY") ?? env("CLAUDE_API_KEY"),
     LLM_MODEL: env("LLM_MODEL"),
@@ -132,19 +142,26 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
   const prevParsed = prevRaw ? safeParseSite(prevRaw) : null;
   const prev = prevParsed?.success ? prevParsed.data : null;
 
-  // 2b) Content polish (KAR-50): LLM rewrites the copy only.
-  const llmChoice = contentLlm();
-  if (llmChoice) {
-    const polished = await polishSite(site, brief, llmChoice.llm);
-    site = polished.site;
-    await log(
-      polished.polished
-        ? `content polished (${llmChoice.name})`
-        : `content polish skipped (${llmChoice.name}: ${polished.error}) — deterministic copy`,
-    );
-  } else {
+  // 2b) Content polish (KAR-50): LLM rewrites the copy only. Providers form a
+  // fallback CHAIN — a Gemini 429 mid-build must not ship unpolished copy when
+  // a Claude key is on hand (İsmail's "renkler değişti/metinler azaldı" root
+  // cause was exactly this silent degradation).
+  const llmChain = contentLlmChain();
+  let llmChoice: ReturnType<typeof contentLlm> = null;
+  if (!llmChain.length) {
     await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
   }
+  for (const choice of llmChain) {
+    const polished = await polishSite(site, brief, choice.llm);
+    if (polished.polished) {
+      site = polished.site;
+      llmChoice = choice; // reuse the working provider for image queries below
+      await log(`content polished (${choice.name})`);
+      break;
+    }
+    await log(`content polish failed (${choice.name}: ${String(polished.error).slice(0, 160)})`);
+  }
+  if (llmChain.length && !llmChoice) await log("all polish providers failed — deterministic copy");
 
   // Brand pin: once CHOSEN, the palette is part of the brand — rebuilds keep it
   // (revisions can still change it explicitly). Tone defaults don't count as
