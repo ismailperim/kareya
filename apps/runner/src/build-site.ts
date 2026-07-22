@@ -61,7 +61,8 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
   // changes; any failure falls back to the deterministic baseline.
   const llmChoice = pickLlm({
     GEMINI_API_KEY: env("GEMINI_API_KEY"),
-    ANTHROPIC_API_KEY: env("ANTHROPIC_API_KEY"),
+    // CLAUDE_API_KEY accepted as an alias for convenience.
+    ANTHROPIC_API_KEY: env("ANTHROPIC_API_KEY") ?? env("CLAUDE_API_KEY"),
     LLM_MODEL: env("LLM_MODEL"),
   });
   if (llmChoice) {
