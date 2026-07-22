@@ -79,6 +79,13 @@ export async function getLatestBrief(
   return { version: rows[0].version as number, data: rows[0].data };
 }
 
+/** Current generated Site JSON for a token (null before the first build). */
+export async function getCurrentSite(token: string): Promise<unknown | null> {
+  const sql = getDb();
+  const rows = await sql`select current_site from meeting_session where token = ${token}`;
+  return rows.length ? (rows[0].current_site ?? null) : null;
+}
+
 /** Save the live brief draft (KAR-26 resume). Upserts the session. */
 export async function saveDraft(token: string, brief: unknown): Promise<void> {
   const sql = getDb();

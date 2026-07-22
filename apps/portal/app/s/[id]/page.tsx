@@ -1,14 +1,21 @@
+import { redirect } from "next/navigation";
+
 import { parseSite, safeParseBrief, type Site } from "@kareya/schemas";
 
 import { DEMO_SITE } from "@/components/site-kit/demo-site";
 import { SiteRenderer } from "@/components/site-kit/SiteRenderer";
 import { isDbConfigured } from "@/lib/db";
-import { getDraft } from "@/lib/meeting-repo";
+import { getCurrentSite, getDraft } from "@/lib/meeting-repo";
 import { briefToSite } from "@kareya/site-gen";
 
-// Per-site preview (KAR-32/33). If `id` is a meeting token with a saved brief,
-// assemble a Site JSON from that brief and render it (the meeting → live site
-// loop). Otherwise fall back to the demo fixture.
+// Per-site preview (KAR-32/33/56). One link, always the right page:
+// - a BUILT site exists (current_site) → redirect to the published static site
+//   on R2 (the real thing);
+// - otherwise, if the token has a saved brief → assemble + render dynamically
+//   (pre-build preview);
+// - otherwise the demo fixture.
+const PREVIEW_BASE = process.env.PREVIEW_BASE_URL ?? "https://preview.kareya.app";
+
 export default async function SitePreview({
   params,
 }: {
@@ -19,10 +26,14 @@ export default async function SitePreview({
   let site: Site | null = null;
   if (isDbConfigured && id && id.length >= 8) {
     try {
+      const built = await getCurrentSite(id);
+      if (built) redirect(`${PREVIEW_BASE}/sites/${id}/index.html`);
       const draft = await getDraft(id);
       const parsed = draft ? safeParseBrief(draft) : null;
       if (parsed?.success) site = briefToSite(parsed.data);
-    } catch {
+    } catch (err) {
+      // next/navigation redirect works by throwing — let it through.
+      if ((err as { digest?: string })?.digest?.startsWith("NEXT_REDIRECT")) throw err;
       /* fall back to the demo fixture */
     }
   }

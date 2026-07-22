@@ -36,11 +36,17 @@ const body = {
   conversation_config: {
     agent: {
       language: "tr",
-      first_message: FIRST_MESSAGE,
-      // Resume context (KAR-26). Default keeps the prompt valid when no value is
-      // passed (e.g. simulate-conversation); the client passes the real summary.
+      // The opening line is a dynamic variable (KAR-56): the client passes a
+      // "kaldığımız yerden devam edelim" greeting when resuming, the standard
+      // opening otherwise. Placeholder keeps fresh sessions/simulations valid.
+      first_message: "{{greeting}}",
+      // Resume context (KAR-26). Defaults keep the prompt valid when no value
+      // is passed (e.g. simulate-conversation); the client passes real values.
       dynamic_variables: {
-        dynamic_variable_placeholders: { collected_summary: "Henüz bilgi toplanmadı." },
+        dynamic_variable_placeholders: {
+          collected_summary: "Henüz bilgi toplanmadı.",
+          greeting: FIRST_MESSAGE,
+        },
       },
       prompt: {
         prompt: SYSTEM_PROMPT_V2,
