@@ -3,9 +3,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { safeParseBrief, type Site } from "@kareya/schemas";
+import { safeParseBrief, safeParseSite, type Site } from "@kareya/schemas";
 import {
   briefToSite,
+  fetchFromR2,
   generateAstroProject,
   pickImageProvider,
   pickLlm,
@@ -17,6 +18,7 @@ import {
 import {
   advancePhase,
   appendJobLog,
+  getCurrentSite,
   getPublishPrefix,
   loadBrief,
   saveCurrentSite,
@@ -123,6 +125,13 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
   let site: Site = briefToSite(brief);
   await log(`site assembled (${site.pages[0]?.sections.length ?? 0} sections)`);
 
+  // Previous build state (brand/image stability across rebuilds — İsmail's
+  // finding: polish re-picked a different palette and Pexels re-picked
+  // different photos on every rebuild).
+  const prevRaw = await getCurrentSite(token);
+  const prevParsed = prevRaw ? safeParseSite(prevRaw) : null;
+  const prev = prevParsed?.success ? prevParsed.data : null;
+
   // 2b) Content polish (KAR-50): LLM rewrites the copy only.
   const llmChoice = contentLlm();
   if (llmChoice) {
@@ -137,15 +146,58 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
   }
 
-  // 2c) Images (KAR-53): source hero/about photos when the customer has none.
+  // Brand pin: once chosen, the palette is part of the brand — rebuilds keep it
+  // (revisions can still change it explicitly).
+  if (prev) {
+    site = { ...site, brand: prev.brand };
+    await log(`brand pinned from previous build (${prev.brand.primary})`);
+  }
+
+  // 2c) Images (KAR-53). Pin first: photos already chosen in a previous build
+  // are restored from R2 — rebuilds must not swap the site's imagery. Only
+  // still-missing slots get sourced fresh.
   const imageFiles: Record<string, Buffer> = {};
+  const setImage = (type: "hero" | "about", url: string) => {
+    for (const page of site.pages) {
+      for (const s of page.sections) {
+        if (s.type === type) s.imageUrl = url; // about/hero may appear on multiple pages
+      }
+    }
+  };
+  const pinned: { hero?: string; about?: string } = {};
+  if (prev) {
+    const prevPrefix = await getPublishPrefix(token);
+    for (const page of prev.pages) {
+      for (const s of page.sections) {
+        if (
+          (s.type === "hero" || s.type === "about") &&
+          s.imageUrl &&
+          !s.imageUrl.startsWith("http") &&
+          !pinned[s.type]
+        ) {
+          const buf = await fetchFromR2(`${prevPrefix}/${s.imageUrl}`, r2Creds());
+          if (buf) {
+            imageFiles[`public/${s.imageUrl}`] = buf;
+            pinned[s.type] = s.imageUrl;
+            setImage(s.type, s.imageUrl);
+          }
+        }
+      }
+    }
+    if (pinned.hero || pinned.about) {
+      await log(`images pinned from previous build (${Object.keys(pinned).join(", ")})`);
+    }
+  }
+
+  const needHero = !pinned.hero;
+  const needAbout = !pinned.about && site.pages.some((p) => p.sections.some((s) => s.type === "about"));
   const imgChoice = pickImageProvider({
     PEXELS_API_KEY: env("PEXELS_API_KEY"),
     GEMINI_API_KEY: env("GEMINI_API_KEY"),
     GEMINI_IMAGE_MODEL: env("GEMINI_IMAGE_MODEL"),
     GEMINI_IMAGE_ENABLED: env("GEMINI_IMAGE_ENABLED"),
   });
-  if (imgChoice && brief.contentSources.hasPhotos !== true) {
+  if (imgChoice && brief.contentSources.hasPhotos !== true && (needHero || needAbout)) {
     try {
       let queries = {
         hero: "modern professional business technology",
@@ -163,22 +215,21 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
           /* keep fallback queries */
         }
       }
-      const hero = await imgChoice.getImage(queries.hero, "landscape");
-      imageFiles[`public/images/hero.${hero.ext}`] = hero.buffer;
-      const heroSec = site.pages[0]?.sections.find((x) => x.type === "hero");
-      if (heroSec && heroSec.type === "hero") heroSec.imageUrl = `images/hero.${hero.ext}`;
-
-      const aboutSec = site.pages[0]?.sections.find((x) => x.type === "about");
-      if (aboutSec && aboutSec.type === "about") {
+      if (needHero) {
+        const hero = await imgChoice.getImage(queries.hero, "landscape");
+        imageFiles[`public/images/hero.${hero.ext}`] = hero.buffer;
+        setImage("hero", `images/hero.${hero.ext}`);
+      }
+      if (needAbout) {
         const about = await imgChoice.getImage(queries.about, "landscape");
         imageFiles[`public/images/about.${about.ext}`] = about.buffer;
-        aboutSec.imageUrl = `images/about.${about.ext}`;
+        setImage("about", `images/about.${about.ext}`);
       }
       await log(`images sourced (${imgChoice.name}: hero="${queries.hero}")`);
     } catch (err) {
       await log(`image step skipped (${err instanceof Error ? err.message : err})`);
     }
-  } else if (!imgChoice) {
+  } else if (!imgChoice && (needHero || needAbout)) {
     await log("no image provider — set PEXELS_API_KEY (free) for photos");
   }
 

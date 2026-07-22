@@ -17,6 +17,15 @@ KURALLAR:
 - MARKA RENGİ: brand.primary ve brand.accent hex değerlerini müşterinin renk tercihine göre ayarla. Müşteri tercihi: "${brief.brand.colors ?? "belirtilmedi"}". Tercih belirtilmişse ona uygun, uyumlu ve erişilebilir (beyaz metinle yeterli kontrast) bir palet seç; belirtilmemişse mevcut değerleri koru.
 - Bilgi UYDURMA: yalnızca brief'te/notlarda olan gerçekleri kullan. Emin olmadığın rakam/iddia yazma. Telefon/e-posta/adres UYDURMA.
 - Ton: ${brief.brand.tone ?? "kurumsal"}. Dil: Türkçe.
+
+YAZIM KALİTESİ (kıdemli metin yazarı standardı):
+- Hero headline: FAYDA/SONUÇ odaklı, en fazla 9 kelime, işletmeye özgü. Genel klişe YASAK ("Kaliteli Hizmet", "Çözüm Ortağınız", "Dijital Dünyada Yanınızdayız" gibi her siteye uyan cümleler kullanma).
+- Subheadline: somut — KİM için, NE yapıyor, NEREDE. Notlardaki gerçek detayları kullan (uzmanlık alanı, bölge, deneyim).
+- "En iyi", "lider", "1 numara" gibi kanıtsız üstünlük iddiaları yazma; onun yerine notlardaki somut gerçekleri öne çıkar.
+- Kısa cümleler, aktif çatı, "siz" hitabı. Her description 1-2 cümle — duvar metni yazma.
+- Services description'ları: hizmetin müşteriye FAYDASINI söyle, tanımını tekrar etme ("Web tasarım hizmeti veriyoruz" ❌ → "Sizi arayan müşterinin ilk 5 saniyede güven duyduğu bir site" ✓).
+- CTA label'ları fiille başlar, 2-4 kelime ("Randevu alın", "Teklif isteyin").
+- FAQ cevapları 2-3 cümle, net ve dürüst; bilinmeyen konuda taahhüt verme.
 - ÇIKTI: SADECE geçerli JSON döndür. Markdown, açıklama, kod bloğu YOK.
 
 MÜŞTERİ BRIEF ÖZETİ:
