@@ -242,7 +242,7 @@ function SiteReadyPanel({
   onRevise,
 }: {
   token: string;
-  room: { phase: string | null; building: boolean };
+  room: { phase: string | null; building: boolean; customCoded: boolean };
   onRevise: (instruction: string) => Promise<boolean>;
 }) {
   const [text, setText] = useState("");
@@ -289,6 +289,12 @@ function SiteReadyPanel({
         >
           Siteyi Görüntüle ↗
         </a>
+        {room.customCoded && !room.building && (
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-indigo-600/80">
+            <span aria-hidden="true">✦</span>
+            Bu site, işletmenize özel yazılmış koddan derlendi
+          </p>
+        )}
       </div>
 
       <div className="mt-5 flex-1">
