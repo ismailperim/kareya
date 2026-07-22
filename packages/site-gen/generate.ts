@@ -130,7 +130,19 @@ function renderSection(s: SiteSection): string {
 }
 
 /** Generate the full Astro project as a { path: content } file map. */
-export function generateAstroProject(site: Site): Record<string, string> {
+export type GenerateOptions = {
+  /**
+   * Public base path the site is served under (e.g. "/sites/<token>/").
+   * Without it Astro emits root-relative asset URLs (/_astro/…), which break
+   * when the site lives in a subdirectory (preview.kareya.app/sites/<token>/).
+   */
+  basePath?: string;
+};
+
+export function generateAstroProject(
+  site: Site,
+  options: GenerateOptions = {},
+): Record<string, string> {
   const page = site.pages[0];
   const name = site.meta.businessName || "Site";
   const sections = (page?.sections ?? []).map(renderSection).join("\n");
@@ -188,7 +200,7 @@ ${footer}
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  vite: { plugins: [tailwindcss()] },
+${options.basePath ? `  base: ${JSON.stringify(options.basePath)},\n` : ""}  vite: { plugins: [tailwindcss()] },
 });
 `,
     "src/styles/global.css": `@import "tailwindcss";\n`,

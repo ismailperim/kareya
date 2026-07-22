@@ -74,8 +74,10 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
   }
 
-  // 2c) Generate the Astro project from the (possibly polished) site.
-  const files = generateAstroProject(site);
+  // 2c) Generate the Astro project from the (possibly polished) site. The
+  // basePath matches the R2 key prefix so asset URLs resolve under
+  // preview.kareya.app/sites/<token>/.
+  const files = generateAstroProject(site, { basePath: `/sites/${token}/` });
   await log(`astro project generated → ${Object.keys(files).length} files`);
 
   // 3) Materialize into an isolated temp worktree.
