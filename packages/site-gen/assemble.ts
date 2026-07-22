@@ -86,6 +86,21 @@ export function briefToSite(brief: Brief): Site {
     });
   }
 
+  // FAQ — topics from the brief become questions; polish writes the answers.
+  if (has("faq")) {
+    const topics = splitList(km("faq"));
+    if (topics.length) {
+      sections.push({
+        type: "faq",
+        title: "Sık Sorulan Sorular",
+        items: topics.map((q) => ({
+          question: q.endsWith("?") ? q : q,
+          answer: "",
+        })),
+      });
+    }
+  }
+
   // Contact — always, if there is any contact info or the section was included.
   if (has("contact") || brief.contact.phone || brief.contact.email) {
     sections.push({
@@ -100,6 +115,11 @@ export function briefToSite(brief: Brief): Site {
     });
   }
 
+  // Feature decisions → site features (KAR-51). WhatsApp float: use a real
+  // number when available; NEVER invent one (empty → button links to contact).
+  const whatsappEnabled =
+    brief.featureDecisions.find((d) => d.feature === "whatsapp_button")?.enabled === true;
+
   return parseSite({
     meta: {
       businessName: name,
@@ -107,6 +127,10 @@ export function briefToSite(brief: Brief): Site {
       description: brief.business.tagline || brief.business.sector || "",
     },
     brand: { primary: colors.primary, accent: colors.accent, tone },
+    whatsapp: {
+      enabled: whatsappEnabled,
+      number: brief.contact.whatsapp || brief.contact.phone || "",
+    },
     pages: [{ path: "/", title: "Anasayfa", sections }],
   });
 }

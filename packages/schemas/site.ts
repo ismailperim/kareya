@@ -55,6 +55,14 @@ const testimonialsSection = z.object({
     .default([]),
 });
 
+const faqSection = z.object({
+  type: z.literal("faq"),
+  title: z.string().default("Sık Sorulan Sorular"),
+  items: z
+    .array(z.object({ question: z.string(), answer: z.string().default("") }))
+    .default([]),
+});
+
 const contactSection = z.object({
   type: z.literal("contact"),
   title: z.string().default("İletişim"),
@@ -72,6 +80,7 @@ export const siteSectionSchema = z.discriminatedUnion("type", [
   aboutSection,
   whyUsSection,
   testimonialsSection,
+  faqSection,
   contactSection,
 ]);
 export type SiteSection = z.infer<typeof siteSectionSchema>;
@@ -83,6 +92,7 @@ export const SITE_SECTION_TYPES = [
   "about",
   "whyUs",
   "testimonials",
+  "faq",
   "contact",
 ] as const;
 
@@ -103,6 +113,10 @@ export const siteSchema = z.object({
     })
     .default({ businessName: "", title: "", description: "" }),
   brand: brandTokensSchema.default({ primary: "#4F46E5", accent: "#8B5CF6", tone: "kurumsal" }),
+  /** Floating WhatsApp button (feature-driven). Empty number → links to #iletisim. */
+  whatsapp: z
+    .object({ enabled: z.boolean().default(false), number: z.string().default("") })
+    .default({ enabled: false, number: "" }),
   pages: z.array(sitePageSchema).default([]),
 });
 export type Site = z.infer<typeof siteSchema>;
