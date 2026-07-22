@@ -149,3 +149,67 @@ export function PhaseButton({
     />
   );
 }
+
+/** Invite-code creation (KAR-42) — new codes open the /davet door. */
+export function CreateInviteForm() {
+  const router = useRouter();
+  const [note, setNote] = useState("");
+  const [maxUses, setMaxUses] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState<string | null>(null);
+
+  const submit = async () => {
+    setBusy(true);
+    setCreated(null);
+    try {
+      const res = await fetch("/api/ops/invites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ note: note.trim() || undefined, maxUses }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { code?: { code: string } };
+        setCreated(data.code?.code ?? null);
+        setNote("");
+        router.refresh();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Not (kime verildi?)"
+        className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-indigo-400"
+      />
+      <select
+        value={maxUses}
+        onChange={(e) => setMaxUses(Number(e.target.value))}
+        className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm"
+      >
+        {[1, 3, 5, 10].map((n) => (
+          <option key={n} value={n}>
+            {n} kullanım
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={submit}
+        disabled={busy}
+        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+      >
+        {busy ? "Oluşturuluyor…" : "Kod oluştur"}
+      </button>
+      {created && (
+        <code className="rounded-lg bg-green-50 px-2 py-1 font-mono text-xs text-green-700">
+          {created} ✓
+        </code>
+      )}
+    </div>
+  );
+}
