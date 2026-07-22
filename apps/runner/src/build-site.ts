@@ -25,6 +25,7 @@ import {
 import {
   advancePhase,
   appendJobLog,
+  enqueueJob,
   getCurrentSite,
   getPublishPrefix,
   loadBrief,
@@ -46,7 +47,7 @@ export type BuildSiteResult = {
   businessName: string;
 };
 
-function run(cmd: string, cwd: string): string {
+export function run(cmd: string, cwd: string): string {
   return execSync(cmd, {
     cwd,
     encoding: "utf8",
@@ -84,7 +85,7 @@ export function contentLlmChain() {
 }
 
 /** Write a { rel → content } map into the worktree. */
-function writeTree(work: string, files: Record<string, string | Buffer>): void {
+export function writeTree(work: string, files: Record<string, string | Buffer>): void {
   for (const [rel, content] of Object.entries(files)) {
     const path = join(work, rel);
     mkdirSync(dirname(path), { recursive: true });
@@ -93,7 +94,7 @@ function writeTree(work: string, files: Record<string, string | Buffer>): void {
 }
 
 /** astro build that reports failure instead of throwing (design-pass gate). */
-function tryBuild(work: string): { ok: boolean; output: string } {
+export function tryBuild(work: string): { ok: boolean; output: string } {
   try {
     rmSync(join(work, "dist"), { recursive: true, force: true });
     const out = run("npm run build", work);
@@ -108,7 +109,7 @@ function tryBuild(work: string): { ok: boolean; output: string } {
 }
 
 /** Concatenated HTML of every built page (content gate input). */
-function readBuiltHtml(work: string): string {
+export function readBuiltHtml(work: string): string {
   const dist = join(work, "dist");
   let html = "";
   for (const entry of readdirSync(dist)) {
@@ -178,7 +179,15 @@ export async function materializeBuildPublish(
   }
 }
 
-export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
+/**
+ * mode "full": legacy all-in-one (build_site) — publishes sites/ and advances
+ * the phase. mode "write": the writer half of the KAR-63 split — produces and
+ * validates sources/ only, then chains a build_publish job.
+ */
+export async function buildSite(
+  job: ClaimedJob,
+  mode: "full" | "write" = "full",
+): Promise<BuildSiteResult> {
   const token = String(job.payload.token ?? "");
   const briefVersion = job.payload.briefVersion;
   if (!token) throw new Error("build_site payload missing token");
@@ -434,11 +443,16 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
       }
     }
 
-    const rewrittenPages = relativizeAssetPaths(join(work, "dist"));
-    await log(`static build complete (assets relativized in ${rewrittenPages} page)`);
-    const keys = await uploadDirToR2(join(work, "dist"), prefix, r2Creds(), () => {});
-    await log(`published ${keys.length} files → r2://${r2Creds().bucket}/${prefix}`);
-    uploaded = keys.length;
+    if (mode === "full") {
+      const rewrittenPages = relativizeAssetPaths(join(work, "dist"));
+      await log(`static build complete (assets relativized in ${rewrittenPages} page)`);
+      const keys = await uploadDirToR2(join(work, "dist"), prefix, r2Creds(), () => {});
+      await log(`published ${keys.length} files → r2://${r2Creds().bucket}/${prefix}`);
+      uploaded = keys.length;
+    } else {
+      await log("write mode — build validated, publish left to build_publish");
+      uploaded = 0;
+    }
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
@@ -446,8 +460,9 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
 
   // 2f) Publish the SOURCE tree (KAR-63 decision: sources/<slug>/ — the
   // customer's real code) + manifest recording the pinned design files.
+  // In write mode this IS the deliverable — a failure here fails the job.
+  const finalFiles = { ...kitFiles, ...(overrides ?? {}) };
   try {
-    const finalFiles = { ...kitFiles, ...(overrides ?? {}) };
     const srcPrefix = sourcePrefixFor(prefix);
     await uploadFilesToR2({ ...finalFiles, ...imageFiles }, srcPrefix, r2Creds());
     await uploadFilesToR2(
@@ -456,6 +471,8 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
           {
             designPass: designApplied,
             rewritten: designRewritten,
+            files: Object.keys(finalFiles),
+            images: Object.keys(imageFiles),
             generatedAt: new Date().toISOString(),
           },
           null,
@@ -467,14 +484,25 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     );
     await log(`source published → r2://${r2Creds().bucket}/${srcPrefix} (designPass=${designApplied})`);
   } catch (err) {
+    if (mode === "write") throw err;
     await log(`source publish skipped (${err instanceof Error ? err.message : err})`);
   }
 
-  // 3) Persist the generated state (revisions patch this) + advance the phase.
+  // 3) Persist the generated state (revisions patch this), then either advance
+  // the phase (full) or chain the build_publish job (write).
   await saveCurrentSite(token, site);
   await saveR2Prefix(token, r2Prefix);
-  const advanced = await advancePhase(token, "PREVIEW_READY");
-  await log(advanced ? "phase → PREVIEW_READY" : "phase NOT advanced (unexpected current phase)");
+  if (mode === "write") {
+    const chained = await enqueueJob("build_publish", {
+      token,
+      projectId: (job.payload as { projectId?: string }).projectId,
+      slug,
+    });
+    await log(`build_publish chained (job ${chained})`);
+  } else {
+    const advanced = await advancePhase(token, "PREVIEW_READY");
+    await log(advanced ? "phase → PREVIEW_READY" : "phase NOT advanced (unexpected current phase)");
+  }
 
   return { token, briefVersion, r2Prefix, uploaded, businessName: brief.business.name ?? "" };
 }

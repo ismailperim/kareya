@@ -1,3 +1,6 @@
+import { RUNNER_ROLES, type RunnerRole } from "@kareya/schemas";
+
+import { buildPublish } from "./build-publish";
 import { buildSite } from "./build-site";
 import { reviseSiteJob } from "./revise-site";
 import { advancePhase, appendJobLog, claimNextJob, failJob, finishJob } from "./db";
@@ -13,14 +16,28 @@ import { advancePhase, appendJobLog, claimNextJob, failJob, finishJob } from "./
 const POLL_MS = Number(process.env.RUNNER_POLL_MS ?? 5000);
 const once = process.argv.includes("--once");
 
+// KAR-63: same binary, role-scoped queue claims. "all" (default) runs the
+// whole pipeline in one container; "writer"/"builder" split the LLM work from
+// the build+publish work across two containers of the same image.
+const ROLE = (process.env.RUNNER_ROLE ?? "all") as RunnerRole;
+const CLAIM_TYPES = RUNNER_ROLES[ROLE] ?? RUNNER_ROLES.all;
+
 async function processOne(): Promise<boolean> {
-  const job = await claimNextJob();
+  const job = await claimNextJob(CLAIM_TYPES);
   if (!job) return false;
 
   console.log(`▶ job ${job.id} (${job.type}, attempt ${job.attempts})`);
   try {
     if (job.type === "build_site") {
-      const result = await buildSite(job);
+      const result = await buildSite(job, "full");
+      await finishJob(job.id, result);
+      console.log(`✓ job ${job.id} done — ${result.r2Prefix} (${result.uploaded} files)`);
+    } else if (job.type === "write_code") {
+      const result = await buildSite(job, "write");
+      await finishJob(job.id, result);
+      console.log(`✓ job ${job.id} done — sources written for ${result.r2Prefix}`);
+    } else if (job.type === "build_publish") {
+      const result = await buildPublish(job);
       await finishJob(job.id, result);
       console.log(`✓ job ${job.id} done — ${result.r2Prefix} (${result.uploaded} files)`);
     } else if (job.type === "revise_site") {
@@ -47,7 +64,9 @@ async function processOne(): Promise<boolean> {
 }
 
 async function main() {
-  console.log(`kareya runner up (${once ? "single-shot" : `polling every ${POLL_MS}ms`})`);
+  console.log(
+    `kareya runner up (role=${ROLE}, ${once ? "single-shot" : `polling every ${POLL_MS}ms`})`,
+  );
   if (once) {
     const had = await processOne();
     console.log(had ? "done" : "queue empty");
