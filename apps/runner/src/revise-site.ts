@@ -12,6 +12,7 @@ import {
   advancePhase,
   appendJobLog,
   getCurrentSite,
+  getPublishPrefix,
   loadBrief,
   saveCurrentSite,
   type ClaimedJob,
@@ -72,6 +73,7 @@ export async function reviseSiteJob(job: ClaimedJob): Promise<ReviseSiteResult> 
 
   // 3) Persist the new state, restore existing images from R2, rebuild+publish.
   await saveCurrentSite(token, result.site);
+  const prefix = await getPublishPrefix(token);
   const imageFiles: Record<string, Buffer> = {};
   for (const section of result.site.pages[0]?.sections ?? []) {
     const imageUrl =
@@ -79,7 +81,7 @@ export async function reviseSiteJob(job: ClaimedJob): Promise<ReviseSiteResult> 
         ? section.imageUrl
         : "";
     if (imageUrl && !imageUrl.startsWith("http")) {
-      const buf = await fetchFromR2(`sites/${token}/${imageUrl}`, r2Creds());
+      const buf = await fetchFromR2(`${prefix}/${imageUrl}`, r2Creds());
       if (buf) imageFiles[`public/${imageUrl}`] = buf;
     }
   }
@@ -88,7 +90,7 @@ export async function reviseSiteJob(job: ClaimedJob): Promise<ReviseSiteResult> 
   }
 
   const files = generateAstroProject(result.site);
-  const { r2Prefix, uploaded } = await materializeBuildPublish(job.id, token, files, imageFiles);
+  const { r2Prefix, uploaded } = await materializeBuildPublish(job.id, prefix, files, imageFiles);
 
   const advanced = await advancePhase(token, "PREVIEW_READY");
   await log(advanced ? "phase → PREVIEW_READY" : "phase NOT advanced");
