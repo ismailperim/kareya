@@ -2,10 +2,10 @@ import type { CSSProperties, ReactNode } from "react";
 
 import type { SiteSection } from "@kareya/schemas";
 
-// Component kit v2 (KAR-31/52): one component per Site JSON section type,
-// driven entirely by typed props. Premium pass: display typography, layered
-// hero, refined cards/spacing. Markup mirrors the Astro generator
-// (packages/site-gen/generate.ts) — keep them in sync.
+// Component kit v3 (KAR-31/52): one component per Site JSON section type,
+// driven entirely by typed props. Design tokens: --brand + --ink/--ink-soft/
+// --ink-mut/--surface (set by SiteRenderer). Icons are inline SVG (no emoji).
+// Markup mirrors the Astro generator (packages/site-gen/generate.ts).
 
 type Hero = Extract<SiteSection, { type: "hero" }>;
 type Services = Extract<SiteSection, { type: "services" }>;
@@ -17,12 +17,79 @@ type Contact = Extract<SiteSection, { type: "contact" }>;
 
 const brand = { color: "var(--brand)" } as const;
 const brandBg = { backgroundColor: "var(--brand)" } as const;
+const ink = { color: "var(--ink)" } as const;
+const inkSoft = { color: "var(--ink-soft)" } as const;
 const tint = (pct: number) => ({
-  backgroundColor: `color-mix(in srgb, var(--brand) ${pct}%, white)`,
+  background: `color-mix(in srgb, var(--brand) ${pct}%, var(--surface))`,
 });
 export const displayFont = {
   fontFamily: '"Sora Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif',
 } as const;
+
+const ICON_PATHS: Record<string, string> = {
+  phone:
+    "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z",
+  chat: "M7.9 20A9 9 0 1 0 4 16.1L2 22Z",
+  pin: "M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z",
+  clock: "M12 6v6l4 2",
+};
+
+export function KitIcon({ name, className = "h-5 w-5" }: { name: string; className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--brand)"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {name === "mail" ? (
+        <>
+          <rect width="20" height="16" x="2" y="4" rx="2" />
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+        </>
+      ) : name === "pin" ? (
+        <>
+          <path d={ICON_PATHS.pin} />
+          <circle cx="12" cy="10" r="3" />
+        </>
+      ) : name === "clock" ? (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <path d={ICON_PATHS.clock} />
+        </>
+      ) : (
+        <path d={ICON_PATHS[name] ?? ICON_PATHS.chat} />
+      )}
+    </svg>
+  );
+}
+
+export function monogramInitials(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((w) => w[0] ?? "")
+      .join("")
+      .toUpperCase() || "K"
+  );
+}
+
+export function Monogram({ name }: { name: string }) {
+  return (
+    <span
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white"
+      style={brandBg}
+    >
+      {monogramInitials(name)}
+    </span>
+  );
+}
 
 export type SectionCtx = { hasServices: boolean };
 
@@ -33,8 +100,8 @@ function SectionHeading({ kicker, children }: { kicker: string; children: ReactN
         {kicker}
       </div>
       <h2
-        className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
-        style={displayFont}
+        className="mt-2 text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl"
+        style={{ ...ink, ...displayFont }}
       >
         {children}
       </h2>
@@ -47,7 +114,7 @@ export function HeroSection({ s, ctx }: { s: Hero; ctx: SectionCtx }) {
     <>
       <div className="absolute inset-0" style={tint(7)} />
       <div
-        className="absolute inset-0 opacity-40"
+        className="absolute inset-0 hidden opacity-40 sm:block"
         style={{
           backgroundImage:
             "radial-gradient(color-mix(in srgb, var(--brand) 22%, white) 1px, transparent 1px)",
@@ -60,9 +127,9 @@ export function HeroSection({ s, ctx }: { s: Hero; ctx: SectionCtx }) {
       />
     </>
   );
-  const ctas = (
+  const ctas = (aligned: boolean) => (
     <div
-      className={`mt-10 flex flex-wrap items-center ${s.imageUrl ? "" : "justify-center "}gap-3`}
+      className={`mt-10 flex flex-wrap items-center ${aligned ? "justify-center lg:justify-start" : "justify-center"} gap-3`}
     >
       {s.ctaLabel && (
         <a
@@ -79,7 +146,8 @@ export function HeroSection({ s, ctx }: { s: Hero; ctx: SectionCtx }) {
       {ctx.hasServices && (
         <a
           href="#hizmetler"
-          className="rounded-xl border border-gray-200 bg-white/80 px-8 py-4 font-semibold text-gray-700 backdrop-blur transition hover:bg-white"
+          className="rounded-xl border border-gray-200 bg-white/80 px-8 py-4 font-semibold backdrop-blur transition hover:bg-white"
+          style={inkSoft}
         >
           Hizmetlerimiz
         </a>
@@ -91,20 +159,23 @@ export function HeroSection({ s, ctx }: { s: Hero; ctx: SectionCtx }) {
     return (
       <section className="relative overflow-hidden">
         {bg}
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 sm:py-28 lg:grid-cols-2">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 text-center sm:py-28 lg:grid-cols-2 lg:text-left">
           <div>
             <h1
-              className="text-4xl font-bold leading-tight tracking-tight text-gray-900 sm:text-5xl"
-              style={displayFont}
+              className="text-4xl font-medium leading-[1.1] tracking-tight sm:text-5xl"
+              style={{ ...ink, ...displayFont }}
             >
               {s.headline}
             </h1>
             {s.subheadline && (
-              <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-600 sm:text-xl">
+              <p
+                className="mx-auto mt-6 max-w-xl text-[17px] leading-relaxed sm:text-xl lg:mx-0"
+                style={inkSoft}
+              >
                 {s.subheadline}
               </p>
             )}
-            {ctas}
+            {ctas(true)}
           </div>
           <div className="relative">
             <div
@@ -126,19 +197,20 @@ export function HeroSection({ s, ctx }: { s: Hero; ctx: SectionCtx }) {
   return (
     <section className="relative overflow-hidden">
       {bg}
-      <div className="relative mx-auto max-w-4xl px-6 py-28 text-center sm:py-36">
+      <div className="relative mx-auto max-w-5xl px-6 py-28 text-center sm:py-36">
         <h1
-          className="text-4xl font-bold leading-tight tracking-tight text-gray-900 sm:text-6xl"
-          style={displayFont}
+          className="text-4xl font-medium leading-[1.08] tracking-tight sm:text-7xl"
+          style={{ ...ink, ...displayFont }}
         >
           {s.headline}
         </h1>
+        <div className="mx-auto mt-8 h-px w-24" style={brandBg} />
         {s.subheadline && (
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 sm:text-xl">
+          <p className="mx-auto mt-8 max-w-2xl text-[17px] leading-relaxed sm:text-xl" style={inkSoft}>
             {s.subheadline}
           </p>
         )}
-        {ctas}
+        {ctas(false)}
       </div>
     </section>
   );
@@ -154,17 +226,14 @@ export function ServicesSection({ s }: { s: Services }) {
             key={i}
             className="group rounded-2xl bg-white p-7 shadow-sm ring-1 ring-gray-900/5 transition hover:-translate-y-1 hover:shadow-xl"
           >
-            <div
-              className="flex h-11 w-11 items-center justify-center rounded-xl font-bold text-white transition group-hover:scale-105"
-              style={brandBg}
-            >
-              {String(i + 1).padStart(2, "0")}
-            </div>
-            <h3 className="mt-5 text-lg font-semibold text-gray-900" style={displayFont}>
+            <div className="h-px w-8 transition-all group-hover:w-12" style={brandBg} />
+            <h3 className="mt-5 text-lg font-semibold" style={{ ...ink, ...displayFont }}>
               {it.name}
             </h3>
             {it.description && (
-              <p className="mt-2 text-[15px] leading-relaxed text-gray-600">{it.description}</p>
+              <p className="mt-2 text-[15px] leading-relaxed" style={inkSoft}>
+                {it.description}
+              </p>
             )}
           </div>
         ))}
@@ -176,7 +245,7 @@ export function ServicesSection({ s }: { s: Services }) {
 export function AboutSection({ s }: { s: About }) {
   if (s.imageUrl) {
     return (
-      <section id="hakkimizda" className="px-6 py-20 sm:py-24" style={tint(5)}>
+      <section id="hakkimizda" className="px-6 py-24 sm:py-32" style={tint(5)}>
         <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -189,13 +258,15 @@ export function AboutSection({ s }: { s: About }) {
               Bizi tanıyın
             </div>
             <h2
-              className="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl"
-              style={displayFont}
+              className="mt-2 text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl"
+              style={{ ...ink, ...displayFont }}
             >
               {s.title}
             </h2>
             {s.body && (
-              <p className="mt-6 whitespace-pre-line text-lg leading-8 text-gray-700">{s.body}</p>
+              <p className="mt-6 whitespace-pre-line text-[17px] leading-8" style={inkSoft}>
+                {s.body}
+              </p>
             )}
           </div>
         </div>
@@ -203,11 +274,13 @@ export function AboutSection({ s }: { s: About }) {
     );
   }
   return (
-    <section id="hakkimizda" className="px-6 py-20 sm:py-24" style={tint(5)}>
+    <section id="hakkimizda" className="px-6 py-24 sm:py-32" style={tint(5)}>
       <div className="mx-auto max-w-3xl text-center">
         <SectionHeading kicker="Bizi tanıyın">{s.title}</SectionHeading>
         {s.body && (
-          <p className="mt-8 whitespace-pre-line text-lg leading-8 text-gray-700">{s.body}</p>
+          <p className="mt-8 whitespace-pre-line text-[17px] leading-8" style={inkSoft}>
+            {s.body}
+          </p>
         )}
       </div>
     </section>
@@ -221,17 +294,16 @@ export function WhyUsSection({ s }: { s: WhyUs }) {
       <div className="mt-12 grid gap-10 sm:grid-cols-3">
         {s.points.map((p, i) => (
           <div key={i} className="text-center sm:text-left">
-            <div
-              className="mx-auto flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold text-white sm:mx-0"
-              style={brandBg}
-            >
-              ✓
+            <div className="text-4xl font-light" style={{ ...brand, ...displayFont }}>
+              {String(i + 1).padStart(2, "0")}
             </div>
-            <h3 className="mt-4 text-lg font-semibold text-gray-900" style={displayFont}>
+            <h3 className="mt-3 text-lg font-semibold" style={{ ...ink, ...displayFont }}>
               {p.title}
             </h3>
             {p.description && (
-              <p className="mt-2 text-[15px] leading-relaxed text-gray-600">{p.description}</p>
+              <p className="mt-2 text-[15px] leading-relaxed" style={inkSoft}>
+                {p.description}
+              </p>
             )}
           </div>
         ))}
@@ -242,7 +314,7 @@ export function WhyUsSection({ s }: { s: WhyUs }) {
 
 export function TestimonialsSection({ s }: { s: Testimonials }) {
   return (
-    <section id="yorumlar" className="px-6 py-20 sm:py-24" style={tint(5)}>
+    <section id="yorumlar" className="px-6 py-24 sm:py-32" style={tint(5)}>
       <div className="mx-auto max-w-6xl">
         <SectionHeading kicker="Referanslar">{s.title}</SectionHeading>
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -254,18 +326,20 @@ export function TestimonialsSection({ s }: { s: Testimonials }) {
               <div className="text-5xl leading-none" style={brand}>
                 &ldquo;
               </div>
-              <blockquote className="mt-2 flex-1 leading-relaxed text-gray-700">
+              <blockquote className="mt-2 flex-1 leading-relaxed" style={inkSoft}>
                 {t.quote}
               </blockquote>
               {t.author && (
                 <figcaption className="mt-5 flex items-center gap-3">
                   <span
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white"
                     style={brandBg}
                   >
                     {t.author.trim().charAt(0).toUpperCase()}
                   </span>
-                  <span className="text-sm font-medium text-gray-600">{t.author}</span>
+                  <span className="text-sm font-medium" style={inkSoft}>
+                    {t.author}
+                  </span>
                 </figcaption>
               )}
             </figure>
@@ -286,14 +360,19 @@ export function FaqSection({ s }: { s: Faq }) {
             key={i}
             className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-900/5 transition open:shadow-md"
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-gray-900">
+            <summary
+              className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold"
+              style={ink}
+            >
               {it.question}
               <span className="text-xl transition group-open:rotate-45" style={brand}>
                 +
               </span>
             </summary>
             {it.answer && (
-              <p className="mt-3 text-[15px] leading-relaxed text-gray-600">{it.answer}</p>
+              <p className="mt-3 text-[15px] leading-relaxed" style={inkSoft}>
+                {it.answer}
+              </p>
             )}
           </details>
         ))}
@@ -302,27 +381,27 @@ export function FaqSection({ s }: { s: Faq }) {
   );
 }
 
-function ContactRow({ icon, label }: { icon: string; label: string }) {
+function ContactRow({ iconName, label }: { iconName: string; label: string }) {
   return (
     <div className="flex items-center gap-4">
       <span
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
         style={tint(12)}
       >
-        {icon}
+        <KitIcon name={iconName} />
       </span>
-      <span className="text-gray-700">{label}</span>
+      <span style={inkSoft}>{label}</span>
     </div>
   );
 }
 
 export function ContactSection({ s }: { s: Contact }) {
   const rows = [
-    s.phone && <ContactRow key="p" icon="📞" label={s.phone} />,
-    s.whatsapp && <ContactRow key="w" icon="💬" label={`WhatsApp: ${s.whatsapp}`} />,
-    s.email && <ContactRow key="e" icon="✉️" label={s.email} />,
-    s.address && <ContactRow key="a" icon="📍" label={s.address} />,
-    s.hours && <ContactRow key="h" icon="🕐" label={s.hours} />,
+    s.phone && <ContactRow key="p" iconName="phone" label={s.phone} />,
+    s.whatsapp && <ContactRow key="w" iconName="chat" label={`WhatsApp: ${s.whatsapp}`} />,
+    s.email && <ContactRow key="e" iconName="mail" label={s.email} />,
+    s.address && <ContactRow key="a" iconName="pin" label={s.address} />,
+    s.hours && <ContactRow key="h" iconName="clock" label={s.hours} />,
   ].filter(Boolean);
 
   const inputCls =
@@ -337,7 +416,7 @@ export function ContactSection({ s }: { s: Contact }) {
           {rows.length ? (
             rows
           ) : (
-            <p className="text-gray-500">
+            <p style={{ color: "var(--ink-mut)" }}>
               İletişim bilgilerimiz çok yakında burada olacak — şimdilik formdan yazabilirsiniz.
             </p>
           )}
