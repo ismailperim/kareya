@@ -161,10 +161,21 @@ function MicStep({
 }
 
 // Room layout: live voice panel (KAR-14/25) + live brief panel (KAR-24) +
-// completion flow (KAR-23): confirm summary → save → next-step screen.
+// completion flow (KAR-23) + project mode (KAR-57): once the site is built the
+// room becomes the customer's project space (preview + revisions).
 function RoomView({ token }: { token: string }) {
-  const { status, mode, brief, gate, error, voiceConfigured, connect, disconnect } =
-    useMeetingSession(token);
+  const {
+    status,
+    mode,
+    brief,
+    gate,
+    room,
+    error,
+    voiceConfigured,
+    connect,
+    disconnect,
+    submitRevision,
+  } = useMeetingSession(token);
   const [phase, setPhase] = useState<"room" | "confirming" | "done">("room");
   const [submitting, setSubmitting] = useState(false);
 
@@ -201,7 +212,11 @@ function RoomView({ token }: { token: string }) {
           onConnect={connect}
           onDisconnect={disconnect}
         />
-        <BriefPanel brief={brief} gate={gate} onComplete={() => setPhase("confirming")} />
+        {room.siteReady ? (
+          <SiteReadyPanel token={token} room={room} onRevise={submitRevision} />
+        ) : (
+          <BriefPanel brief={brief} gate={gate} onComplete={() => setPhase("confirming")} />
+        )}
       </div>
       <p className="mt-4 text-center text-xs text-gray-400">
         Oturum: {token.slice(0, 8)}…
@@ -216,6 +231,100 @@ function RoomView({ token }: { token: string }) {
         />
       )}
     </div>
+  );
+}
+
+// Project space (KAR-57): once the site is built the room's right panel turns
+// into the customer's ongoing agency panel — preview + revision requests.
+function SiteReadyPanel({
+  token,
+  room,
+  onRevise,
+}: {
+  token: string;
+  room: { phase: string | null; building: boolean };
+  onRevise: (instruction: string) => Promise<boolean>;
+}) {
+  const [text, setText] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+
+  const submit = async () => {
+    if (!text.trim()) return;
+    setState("sending");
+    const ok = await onRevise(text.trim());
+    setState(ok ? "sent" : "error");
+    if (ok) setText("");
+  };
+
+  return (
+    <section className="flex min-h-[420px] flex-col rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+          Siteniz
+        </h2>
+        <span
+          className={[
+            "rounded-full px-2.5 py-0.5 text-xs font-medium",
+            room.building ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700",
+          ].join(" ")}
+        >
+          {room.building ? "Güncelleniyor…" : room.phase === "LIVE" ? "Yayında" : "Hazır"}
+        </span>
+      </div>
+
+      <div className="mt-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 p-6 text-center">
+        <div className="text-3xl">🎉</div>
+        <h3 className="mt-2 text-lg font-semibold text-gray-900">
+          {room.building ? "Siteniz güncelleniyor" : "Siteniz hazır!"}
+        </h3>
+        <p className="mt-1 text-sm text-gray-600">
+          {room.building
+            ? "Değişiklikleriniz uygulanıyor — birkaç dakika içinde yayında."
+            : "Görüşmemizde topladıklarımızla sitenizi hazırladık."}
+        </p>
+        <a
+          href={`/s/${token}`}
+          target="_blank"
+          className="mt-4 inline-block rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-6 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95"
+        >
+          Siteyi Görüntüle ↗
+        </a>
+      </div>
+
+      <div className="mt-5 flex-1">
+        <div className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+          Değişiklik isteyin
+        </div>
+        <p className="mt-1 text-sm text-gray-500">
+          Danışmanınıza sesli söyleyin ya da buraya yazın — ekibimiz uygular.
+        </p>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          placeholder='Örn: "Başlığı şöyle değiştirin…", "SSS bölümünü kaldırın"'
+          className="mt-2 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none transition focus:border-indigo-400"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={state === "sending" || !text.trim()}
+          className="mt-2 w-full rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-3 font-medium text-white shadow-lg shadow-indigo-600/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {state === "sending" ? "Gönderiliyor…" : "Değişikliği Gönder"}
+        </button>
+        {state === "sent" && (
+          <p className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+            Talebiniz alındı — birkaç dakika içinde siteye yansıyacak. ✓
+          </p>
+        )}
+        {state === "error" && (
+          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            Gönderilemedi — lütfen tekrar deneyin.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 

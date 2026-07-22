@@ -20,6 +20,12 @@ import type {
   MeetingToolCall,
 } from "@/lib/meeting/types";
 
+export type RoomStatus = {
+  phase: string | null;
+  siteReady: boolean;
+  building: boolean;
+};
+
 export type UseMeetingSession = {
   status: MeetingStatus;
   mode: AgentMode | null;
@@ -27,10 +33,15 @@ export type UseMeetingSession = {
   brief: Brief;
   /** Completeness gate over the live brief (KAR-21). */
   gate: GateResult;
+  /** Project state of this room (KAR-57): brief mode vs site-ready mode. */
+  room: RoomStatus;
   error: string | null;
   voiceConfigured: boolean;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
+  /** Written revision from the room panel; returns true when queued. */
+  submitRevision: (instruction: string) => Promise<boolean>;
+  refreshStatus: () => Promise<void>;
 };
 
 export function useMeetingSession(token: string): UseMeetingSession {
@@ -39,6 +50,8 @@ export function useMeetingSession(token: string): UseMeetingSession {
   const [brief, setBrief] = useState<Brief>(() => createEmptyBrief());
   const [error, setError] = useState<string | null>(null);
   const [voiceConfigured, setVoiceConfigured] = useState(true);
+  const [room, setRoom] = useState<RoomStatus>({ phase: null, siteReady: false, building: false });
+  const roomRef = useRef<RoomStatus>(room);
   const sessionRef = useRef<MeetingSession | null>(null);
   // Source of truth for tool-call reduction — kept current so check_completeness
   // reflects the very latest brief even between renders.
@@ -74,11 +87,64 @@ export function useMeetingSession(token: string): UseMeetingSession {
     [token],
   );
 
+  // Project status (KAR-57): brief mode vs site-ready mode; polled so a queued
+  // build/revision flips the room when it finishes.
+  const refreshStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/meeting/${token}/status`);
+      if (!res.ok) return;
+      const data = (await res.json()) as RoomStatus;
+      const next = {
+        phase: data.phase ?? null,
+        siteReady: !!data.siteReady,
+        building: !!data.building,
+      };
+      roomRef.current = next;
+      setRoom(next);
+    } catch {
+      /* keep last known */
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void refreshStatus();
+    const t = setInterval(() => void refreshStatus(), 15000);
+    return () => clearInterval(t);
+  }, [refreshStatus]);
+
+  // Written revision channel (room panel).
+  const submitRevision = useCallback(
+    async (instruction: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/meeting/${token}/revise`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ instruction }),
+        });
+        if (res.ok) void refreshStatus();
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+    [token, refreshStatus],
+  );
+
   const handleToolCall = useCallback(
-    (call: MeetingToolCall): unknown => {
+    async (call: MeetingToolCall): Promise<unknown> => {
       // The agent asks what's still missing; answer from the latest brief.
       if (call.name === "check_completeness") {
         return formatGateSignal(evaluateGate(briefRef.current));
+      }
+      // Voice revision (KAR-57): forward to the customer revision channel.
+      if (call.name === "request_revision") {
+        const instruction = String(call.parameters.instruction ?? "").trim();
+        if (!instruction) return "Talep boş — müşteriden netleştirme iste.";
+        logEvent(call);
+        const ok = await submitRevision(instruction);
+        return ok
+          ? "Talep alındı; birkaç dakika içinde siteye yansıyacak."
+          : "Talep iletilemedi — müşteriden az sonra tekrar denemesini iste.";
       }
       const next = applyToolCall(briefRef.current, call);
       briefRef.current = next;
@@ -87,7 +153,7 @@ export function useMeetingSession(token: string): UseMeetingSession {
       persistDraft(next);
       return "ok";
     },
-    [logEvent, persistDraft],
+    [logEvent, persistDraft, submitRevision],
   );
 
   // Rehydrate from the saved draft on load (resume after reload).
@@ -125,12 +191,16 @@ export function useMeetingSession(token: string): UseMeetingSession {
       }
       const auth = (await res.json()) as MeetingAuth;
       const summary = buildCollectedSummary(briefRef.current);
-      // Resume-aware opening (KAR-56): a half-finished meeting is continued,
-      // not restarted — the greeting reflects that.
+      // Phase-aware opening (KAR-56/57): revision mode when the site is built;
+      // resume when a half-finished brief exists; fresh otherwise.
       const businessName = briefRef.current.business.name;
-      const greeting = summary
-        ? `Tekrar hoş geldiniz! ${businessName ? businessName + " için başladığımız" : "Başladığımız"} görüşmeye kaldığımız yerden devam edelim. Notlarım duruyor — hazırsanız sürdürelim.`
-        : "Merhaba, ben Kareya'nın proje danışmanıyım. Size gerçekten yakışan bir web sitesi çıkarabilmemiz için biraz sohbet edip işinizi tanımak istiyorum. Öncelikle, ne iş yaptığınızı biraz anlatır mısınız?";
+      const { siteReady, building } = roomRef.current;
+      const greeting = siteReady
+        ? `Tekrar hoş geldiniz! ${businessName ? businessName + " siteniz" : "Siteniz"} ${building ? "şu an güncelleniyor" : "hazır"} — sağdaki panelden önizleyebilirsiniz. Değiştirmek istediğiniz bir şey var mı?`
+        : summary
+          ? `Tekrar hoş geldiniz! ${businessName ? businessName + " için başladığımız" : "Başladığımız"} görüşmeye kaldığımız yerden devam edelim. Notlarım duruyor — hazırsanız sürdürelim.`
+          : "Merhaba, ben Kareya'nın proje danışmanıyım. Size gerçekten yakışan bir web sitesi çıkarabilmemiz için biraz sohbet edip işinizi tanımak istiyorum. Öncelikle, ne iş yaptığınızı biraz anlatır mısınız?";
+      const siteStatus = siteReady ? "yayında" : "henüz yok";
       const session = await createMeetingSession(
         auth,
         {
@@ -146,6 +216,7 @@ export function useMeetingSession(token: string): UseMeetingSession {
           dynamicVariables: {
             collected_summary: summary || "Henüz bilgi toplanmadı.",
             greeting,
+            site_status: siteStatus,
           },
         },
       );
@@ -171,5 +242,17 @@ export function useMeetingSession(token: string): UseMeetingSession {
     };
   }, []);
 
-  return { status, mode, brief, gate, error, voiceConfigured, connect, disconnect };
+  return {
+    status,
+    mode,
+    brief,
+    gate,
+    room,
+    error,
+    voiceConfigured,
+    connect,
+    disconnect,
+    submitRevision,
+    refreshStatus,
+  };
 }
