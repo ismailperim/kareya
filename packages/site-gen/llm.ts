@@ -72,11 +72,27 @@ export function pickLlm(env: {
   ANTHROPIC_API_KEY?: string;
   LLM_MODEL?: string;
 }): LlmChoice | null {
+  return pickLlms(env)[0] ?? null;
+}
+
+/**
+ * All available providers in preference order (Gemini first — free tier;
+ * Claude next). Callers use this as a runtime FALLBACK CHAIN: a provider
+ * failing mid-build (rate limit, outage) must not degrade the customer's
+ * site to unpolished copy when another key is on hand.
+ */
+export function pickLlms(env: {
+  GEMINI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
+  LLM_MODEL?: string;
+}): LlmChoice[] {
+  const choices: LlmChoice[] = [];
   if (env.GEMINI_API_KEY) {
-    return { name: "gemini", llm: geminiLlm(env.GEMINI_API_KEY, env.LLM_MODEL || undefined) };
+    choices.push({ name: "gemini", llm: geminiLlm(env.GEMINI_API_KEY, env.LLM_MODEL || undefined) });
   }
   if (env.ANTHROPIC_API_KEY) {
-    return { name: "anthropic", llm: anthropicLlm(env.ANTHROPIC_API_KEY, env.LLM_MODEL || undefined) };
+    // LLM_MODEL is a Gemini override; Claude keeps its own default here.
+    choices.push({ name: "anthropic", llm: anthropicLlm(env.ANTHROPIC_API_KEY) });
   }
-  return null;
+  return choices;
 }
