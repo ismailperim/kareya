@@ -9,8 +9,14 @@ FAQ"), and the customer owns the source.
 
 > Status: pre-launch. The full product loop runs end-to-end today (voice
 > meeting → brief → approval → per-project code generation → live preview →
-> chat/voice revisions). See `docs/DESIGN.md` for the architecture and
-> `CLAUDE.md` for the operating model.
+> chat/voice revisions). Architecture overview in English:
+> [`docs/DESIGN.en.md`](docs/DESIGN.en.md) · full design doc (Turkish):
+> [`docs/DESIGN.md`](docs/DESIGN.md).
+
+> **On language:** all code, comments, commits and ADRs are in English. The
+> LLM prompts and product UI are in Turkish *by design* — they produce
+> Turkish customer-facing output for the Turkish SMB market. Details in
+> [`CONTRIBUTING.md`](CONTRIBUTING.md#language-policy-please-read-first).
 
 ## Why it's not a website builder
 
@@ -117,7 +123,18 @@ Keys are read from `apps/portal/.env.local` (the runner falls back to it):
 - Runner: `apps/runner/Dockerfile` builds a container image; run it wherever
   Node runs (homelab today, Cloudflare Containers later — same image).
 
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) — setup, tests, the architecture
+ground rules, and the language policy. Good first areas: new section
+variants, image/LLM provider adapters, ops dashboard improvements.
+
 ## Operating model
 
 Every task starts from a Linear ticket (`KAR-*`). See `CLAUDE.md` and
 `docs/process/` for the cycle and the `/modus:*` commands.
+
+## License
+
+[AGPL-3.0](LICENSE). The generated customer sites are the customer's own —
+plain Astro projects with no license restrictions from us.
