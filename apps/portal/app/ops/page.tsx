@@ -1,9 +1,19 @@
 import { isDbConfigured } from "@/lib/db";
 import { listJobs, type JobRow } from "@/lib/jobs";
-import { listSessions, type SessionSummary } from "@/lib/meeting-repo";
+import {
+  listInviteCodes,
+  listSessions,
+  type SessionSummary,
+} from "@/lib/meeting-repo";
 import { fetchManifest, manifestUrl, type SourceManifest } from "@/lib/sources";
 
-import { PhaseButton, RefreshControl, RetryJobButton, RevisionForm } from "./OpsActions";
+import {
+  CreateInviteForm,
+  PhaseButton,
+  RefreshControl,
+  RetryJobButton,
+  RevisionForm,
+} from "./OpsActions";
 
 // Ops dashboard (KAR-47): the whole workflow on one screen — sessions with
 // phases + approval gates, and the job queue with logs. İsmail-only (the portal
@@ -158,7 +168,11 @@ export default async function OpsPage() {
   if (!isDbConfigured) {
     return <main className="p-8 text-gray-500">DB yapılandırılmamış.</main>;
   }
-  const [sessions, jobs] = await Promise.all([listSessions(), listJobs()]);
+  const [sessions, jobs, invites] = await Promise.all([
+    listSessions(),
+    listJobs(),
+    listInviteCodes(),
+  ]);
 
   // Manifest tells "custom-coded vs kit" + links to sources; only meaningful
   // once a build exists. Best-effort, fetched in parallel (İsmail-only page).
@@ -203,6 +217,49 @@ export default async function OpsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-400">
+            Davet Kodları ({invites.length})
+          </h2>
+          <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+            <CreateInviteForm />
+            {invites.length > 0 && (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-gray-400">
+                    <th className="py-1 pr-3 font-medium">Kod</th>
+                    <th className="py-1 pr-3 font-medium">Not</th>
+                    <th className="py-1 pr-3 font-medium">Kullanım</th>
+                    <th className="py-1 font-medium">Oluşturma</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invites.map((c) => (
+                    <tr key={c.code} className="border-t border-gray-100">
+                      <td className="py-1.5 pr-3 font-mono text-xs">{c.code}</td>
+                      <td className="py-1.5 pr-3 text-gray-600">{c.note || "—"}</td>
+                      <td className="py-1.5 pr-3">
+                        <span
+                          className={
+                            c.used_count >= c.max_uses
+                              ? "text-red-500"
+                              : "text-gray-700"
+                          }
+                        >
+                          {c.used_count}/{c.max_uses}
+                        </span>
+                      </td>
+                      <td className="py-1.5 text-xs text-gray-400">
+                        {new Date(c.created_at).toLocaleString("tr-TR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </section>
 

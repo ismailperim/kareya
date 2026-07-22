@@ -2,20 +2,78 @@ import { canTransition, isPhase, type Phase } from "@kareya/schemas";
 
 import { getDb } from "@/lib/db";
 
-// Server-only data access for meeting sessions + briefs (KAR-20).
-// Access is keyed by the meeting token for now; a session row is created on
-// first use. Real account-bound, single-use token validation comes later.
+// Server-only data access for meeting sessions + briefs (KAR-20; KAR-42).
+// Access is keyed by the meeting token. Sessions are MINTED — by invite-code
+// redemption or by ops — never auto-created from an unknown token: otherwise
+// anyone could conjure a session and reach the voice endpoint.
 
-/** Get the session id for a token, creating the row if needed. */
-export async function getOrCreateSession(token: string): Promise<string> {
+/** Session id for an EXISTING token; null for unknown tokens (→ 404). */
+export async function getSessionId(token: string): Promise<string | null> {
+  const sql = getDb();
+  const rows = await sql`select id from meeting_session where token = ${token}`;
+  return rows.length ? (rows[0].id as string) : null;
+}
+
+// ---- Invite codes (KAR-42) ----
+
+export type InviteCode = {
+  code: string;
+  note: string | null;
+  max_uses: number;
+  used_count: number;
+  expires_at: string | null;
+  created_at: string;
+};
+
+/** Create an invite code (ops). Auto-generates a readable code when omitted. */
+export async function createInviteCode(input: {
+  code?: string;
+  note?: string;
+  maxUses?: number;
+  expiresAt?: string;
+}): Promise<InviteCode> {
+  const sql = getDb();
+  const code =
+    input.code?.trim() ||
+    `kareya-${crypto.randomUUID().replaceAll("-", "").slice(0, 8)}`;
+  const rows = await sql`
+    insert into invite_code (code, note, max_uses, expires_at)
+    values (${code}, ${input.note ?? null}, ${Math.max(1, input.maxUses ?? 1)},
+            ${input.expiresAt ?? null})
+    returning code, note, max_uses, used_count, expires_at, created_at
+  `;
+  return rows[0] as unknown as InviteCode;
+}
+
+export async function listInviteCodes(limit = 50): Promise<InviteCode[]> {
   const sql = getDb();
   const rows = await sql`
-    insert into meeting_session (token)
-    values (${token})
-    on conflict (token) do update set updated_at = now()
-    returning id
+    select code, note, max_uses, used_count, expires_at, created_at
+    from invite_code order by created_at desc limit ${limit}
   `;
-  return rows[0].id as string;
+  return rows as unknown as InviteCode[];
+}
+
+/**
+ * Redeem an invite code: atomically consume one use (single statement — safe
+ * over the HTTP driver; the guarded UPDATE can't double-spend), then mint a
+ * fresh meeting session. Returns its token, or null when the code is unknown,
+ * exhausted, or expired.
+ */
+export async function redeemInviteCode(code: string): Promise<string | null> {
+  const sql = getDb();
+  const consumed = await sql`
+    update invite_code
+    set used_count = used_count + 1
+    where code = ${code.trim()}
+      and used_count < max_uses
+      and (expires_at is null or expires_at > now())
+    returning code
+  `;
+  if (!consumed.length) return null;
+  const token = `kar-${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`;
+  await sql`insert into meeting_session (token) values (${token})`;
+  return token;
 }
 
 export type BriefEventInput = {
@@ -31,7 +89,8 @@ export async function recordBriefEvent(
   event: BriefEventInput,
 ): Promise<void> {
   const sql = getDb();
-  const sessionId = await getOrCreateSession(token);
+  const sessionId = await getSessionId(token);
+  if (!sessionId) throw new Error("unknown_session");
   const payload = event.payload === undefined ? null : JSON.stringify(event.payload);
   await sql`
     insert into brief_event (meeting_session_id, kind, field, value, payload)
@@ -48,7 +107,8 @@ export async function recordBriefEvent(
 /** Save a new versioned Brief snapshot; returns the version number. */
 export async function saveBrief(token: string, data: unknown): Promise<number> {
   const sql = getDb();
-  const sessionId = await getOrCreateSession(token);
+  const sessionId = await getSessionId(token);
+  if (!sessionId) throw new Error("unknown_session");
   const rows = await sql`
     insert into brief (meeting_session_id, version, data)
     select
@@ -171,15 +231,16 @@ export async function getProjectForToken(token: string): Promise<
   return rows.length ? (rows[0] as never) : null;
 }
 
-/** Save the live brief draft (KAR-26 resume). Upserts the session. */
+/** Save the live brief draft (KAR-26 resume). Existing sessions only (KAR-42). */
 export async function saveDraft(token: string, brief: unknown): Promise<void> {
   const sql = getDb();
-  await sql`
-    insert into meeting_session (token, current_brief)
-    values (${token}, ${JSON.stringify(brief)}::jsonb)
-    on conflict (token) do update
-      set current_brief = ${JSON.stringify(brief)}::jsonb, updated_at = now()
+  const rows = await sql`
+    update meeting_session
+    set current_brief = ${JSON.stringify(brief)}::jsonb, updated_at = now()
+    where token = ${token}
+    returning id
   `;
+  if (!rows.length) throw new Error("unknown_session");
 }
 
 /** Load the live brief draft for a token, or null if none. */
