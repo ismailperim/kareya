@@ -8,6 +8,9 @@ import type { SiteSection } from "@kareya/schemas";
 // Markup mirrors the Astro generator (packages/site-gen/generate.ts).
 
 type Hero = Extract<SiteSection, { type: "hero" }>;
+type StatsBar = Extract<SiteSection, { type: "statsBar" }>;
+type Process = Extract<SiteSection, { type: "process" }>;
+type CtaBanner = Extract<SiteSection, { type: "ctaBanner" }>;
 type Services = Extract<SiteSection, { type: "services" }>;
 type About = Extract<SiteSection, { type: "about" }>;
 type WhyUs = Extract<SiteSection, { type: "whyUs" }>;
@@ -216,6 +219,86 @@ export function HeroSection({ s, ctx }: { s: Hero; ctx: SectionCtx }) {
   );
 }
 
+export function StatsBarSection({ s }: { s: StatsBar }) {
+  if (!s.items.length) return null;
+  return (
+    <section className="mx-auto max-w-5xl px-6 py-12">
+      <div
+        className="grid grid-cols-2 gap-6 rounded-3xl bg-white p-8 shadow-sm ring-1 ring-gray-900/5"
+        style={{ gridTemplateColumns: `repeat(${Math.min(s.items.length, 4)}, 1fr)` }}
+      >
+        {s.items.map((it, i) => (
+          <div key={i} className="text-center">
+            <div className="text-3xl font-semibold sm:text-4xl" style={{ ...brand, ...displayFont }}>
+              {it.value}
+            </div>
+            <div className="mt-1 text-sm" style={inkSoft}>
+              {it.label}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function ProcessSection({ s }: { s: Process }) {
+  if (!s.steps.length) return null;
+  return (
+    <section id="surec" className="px-6 py-20 sm:py-24" style={tint(5)}>
+      <div className="mx-auto max-w-5xl">
+        <SectionHeading kicker="Süreç">{s.title}</SectionHeading>
+        <div className="mt-12 grid gap-8 sm:grid-cols-3">
+          {s.steps.map((p, i) => (
+            <div key={i}>
+              <div className="text-4xl font-light" style={{ ...brand, ...displayFont }}>
+                {String(i + 1).padStart(2, "0")}
+              </div>
+              <h3 className="mt-3 text-lg font-semibold" style={{ ...ink, ...displayFont }}>
+                {p.title}
+              </h3>
+              {p.description && (
+                <p className="mt-2 text-[15px] leading-relaxed" style={inkSoft}>
+                  {p.description}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function CtaBannerSection({ s }: { s: CtaBanner }) {
+  return (
+    <section className="mx-auto max-w-6xl px-6 py-12">
+      <div className="relative overflow-hidden rounded-3xl px-8 py-14 text-center" style={brandBg}>
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{
+            backgroundImage: "radial-gradient(white 1px, transparent 1px)",
+            backgroundSize: "20px 20px",
+          }}
+        />
+        <h2
+          className="relative text-2xl font-semibold tracking-tight text-white sm:text-3xl"
+          style={displayFont}
+        >
+          {s.headline}
+        </h2>
+        <a
+          href={s.ctaHref}
+          className="relative mt-6 inline-block rounded-xl bg-white px-8 py-3.5 font-semibold transition hover:opacity-90"
+          style={brand}
+        >
+          {s.ctaLabel}
+        </a>
+      </div>
+    </section>
+  );
+}
+
 export function ServicesSection({ s }: { s: Services }) {
   return (
     <section id="hizmetler" className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
@@ -412,13 +495,23 @@ export function ContactSection({ s }: { s: Contact }) {
     <section id="iletisim" className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
       <SectionHeading kicker="Bize ulaşın">{s.title}</SectionHeading>
       <div className="mt-12 grid items-start gap-10 md:grid-cols-2">
-        <div className="space-y-5">
-          {rows.length ? (
-            rows
-          ) : (
-            <p style={{ color: "var(--ink-mut)" }}>
-              İletişim bilgilerimiz çok yakında burada olacak — şimdilik formdan yazabilirsiniz.
-            </p>
+        <div>
+          <div className="space-y-5">
+            {rows.length ? (
+              rows
+            ) : (
+              <p style={{ color: "var(--ink-mut)" }}>
+                İletişim bilgilerimiz çok yakında burada olacak — şimdilik formdan yazabilirsiniz.
+              </p>
+            )}
+          </div>
+          {s.showMap && s.address && (
+            <iframe
+              title="Harita"
+              src={`https://www.google.com/maps?q=${encodeURIComponent(s.address)}&output=embed`}
+              className="mt-6 h-64 w-full rounded-2xl ring-1 ring-gray-900/10"
+              loading="lazy"
+            />
           )}
         </div>
         {s.showForm && (
@@ -445,6 +538,12 @@ export function renderSection(section: SiteSection, key: number, ctx: SectionCtx
   switch (section.type) {
     case "hero":
       return <HeroSection key={key} s={section} ctx={ctx} />;
+    case "statsBar":
+      return <StatsBarSection key={key} s={section} />;
+    case "process":
+      return <ProcessSection key={key} s={section} />;
+    case "ctaBanner":
+      return <CtaBannerSection key={key} s={section} />;
     case "services":
       return <ServicesSection key={key} s={section} />;
     case "about":

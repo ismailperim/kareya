@@ -24,12 +24,14 @@ const NAV_ITEMS: { id: string; label: string; types: string[] }[] = [
 ];
 
 export function SiteRenderer({ site }: { site: Site }) {
-  const page = site.pages[0];
   const name = site.meta.businessName || "Site";
-  const sectionTypes = new Set((page?.sections ?? []).map((s) => s.type));
+  // Dynamic pre-build preview: stack every page's sections in one scroll (the
+  // real multi-page navigation lives in the built Astro site).
+  const allSections = site.pages.flatMap((p) => p.sections);
+  const sectionTypes = new Set(allSections.map((s) => s.type));
   const ctx: SectionCtx = { hasServices: sectionTypes.has("services") };
   const nav = NAV_ITEMS.filter((n) => n.types.some((t) => sectionTypes.has(t as never)));
-  const contact = (page?.sections ?? []).find((x) => x.type === "contact");
+  const contact = allSections.find((x) => x.type === "contact");
   const footerBits =
     contact && contact.type === "contact"
       ? [contact.phone, contact.email, contact.whatsapp && `WhatsApp: ${contact.whatsapp}`].filter(
@@ -87,7 +89,7 @@ export function SiteRenderer({ site }: { site: Site }) {
         </div>
       </header>
 
-      <main>{page?.sections.map((section, i) => renderSection(section, i, ctx))}</main>
+      <main>{allSections.map((section, i) => renderSection(section, i, ctx))}</main>
 
       <footer className="border-t border-gray-900/5 px-6 pt-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 pb-8 sm:flex-row">
