@@ -1,4 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+
+import { isDbConfigured } from "@/lib/db";
+import { getSessionId } from "@/lib/meeting-repo";
+
 import { MeetingRoom } from "./MeetingRoom";
 
 export default async function MeetingPage({
@@ -8,11 +12,14 @@ export default async function MeetingPage({
 }) {
   const { token } = await params;
 
-  // MVP token check: empty/too-short token = no access. Real validation
-  // (account-bound, single-use token via Neon) and hardening come in a
-  // later ticket (with security-reviewer).
   if (!token || token.length < 8) {
     notFound();
+  }
+
+  // Rooms exist only for minted sessions (invite redemption or ops — KAR-42).
+  // An unknown token lands at the invite door instead of an empty room shell.
+  if (isDbConfigured && !(await getSessionId(token))) {
+    redirect("/invite");
   }
 
   return <MeetingRoom token={token} />;
