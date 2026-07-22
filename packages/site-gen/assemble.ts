@@ -52,6 +52,7 @@ export function briefToSite(brief: Brief): Site {
       ? (CTA_LABEL[brief.cta.primaryGoal] ?? "İletişime geçin")
       : "İletişime geçin",
     ctaHref: "#iletisim",
+    imageUrl: "",
   });
 
   if (has("services")) {
@@ -67,6 +68,7 @@ export function briefToSite(brief: Brief): Site {
       type: "about",
       title: "Hakkımızda",
       body: km("about") || brief.notes.slice(0, 400),
+      imageUrl: "",
     });
   }
 

@@ -23,6 +23,8 @@ const heroSection = z.object({
   subheadline: z.string().default(""),
   ctaLabel: z.string().default(""),
   ctaHref: z.string().default("#iletisim"),
+  /** Relative path inside the generated site (e.g. "images/hero.jpg"). */
+  imageUrl: z.string().default(""),
 });
 
 const servicesSection = z.object({
@@ -37,6 +39,8 @@ const aboutSection = z.object({
   type: z.literal("about"),
   title: z.string().default("Hakkımızda"),
   body: z.string().default(""),
+  /** Relative path inside the generated site (e.g. "images/about.jpg"). */
+  imageUrl: z.string().default(""),
 });
 
 const whyUsSection = z.object({
