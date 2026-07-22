@@ -2,7 +2,7 @@ import { isDbConfigured } from "@/lib/db";
 import { listJobs, type JobRow } from "@/lib/jobs";
 import { listSessions, type SessionSummary } from "@/lib/meeting-repo";
 
-import { PhaseButton, RefreshControl, RetryJobButton } from "./OpsActions";
+import { PhaseButton, RefreshControl, RetryJobButton, RevisionForm } from "./OpsActions";
 
 // Ops dashboard (KAR-47): the whole workflow on one screen — sessions with
 // phases + approval gates, and the job queue with logs. İsmail-only (the portal
@@ -71,6 +71,9 @@ function SessionRow({ s }: { s: SessionSummary }) {
           )}
           {s.phase === "LIVE" && <PhaseButton token={s.token} to="CARE" label="CARE'e al" />}
         </div>
+        {["PREVIEW_READY", "LIVE", "CARE"].includes(s.phase) && (
+          <RevisionForm token={s.token} />
+        )}
       </td>
     </tr>
   );

@@ -40,6 +40,24 @@ function walk(dir: string): string[] {
   return out;
 }
 
+/** Fetch a single object from R2 (e.g. restoring site images on revision). */
+export async function fetchFromR2(
+  key: string,
+  creds: R2Credentials,
+): Promise<Buffer | null> {
+  const aws = new AwsClient({
+    accessKeyId: creds.accessKeyId,
+    secretAccessKey: creds.secretAccessKey,
+    service: "s3",
+    region: "auto",
+  });
+  const endpoint = `https://${creds.accountId}.r2.cloudflarestorage.com`;
+  const res = await aws.fetch(`${endpoint}/${creds.bucket}/${key}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`R2 GET ${key} failed: ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /** Upload every file under `localDir` to `r2://bucket/prefix/`. Returns keys. */
 export async function uploadDirToR2(
   localDir: string,

@@ -86,6 +86,20 @@ export async function loadBrief(
   return rows.length ? rows[0].data : null;
 }
 
+/** Current generated Site JSON for a token (null before the first build). */
+export async function getCurrentSite(token: string): Promise<unknown | null> {
+  const rows = await sql()`select current_site from meeting_session where token = ${token}`;
+  return rows.length ? (rows[0].current_site ?? null) : null;
+}
+
+/** Persist the current generated Site JSON (after build/revision). */
+export async function saveCurrentSite(token: string, site: unknown): Promise<void> {
+  await sql()`
+    update meeting_session set current_site = ${JSON.stringify(site)}::jsonb, updated_at = now()
+    where token = ${token}
+  `;
+}
+
 /** Machine-validated phase transition (mirrors the portal's advancePhase). */
 export async function advancePhase(token: string, to: Phase): Promise<boolean> {
   const rows = await sql()`select phase from meeting_session where token = ${token}`;

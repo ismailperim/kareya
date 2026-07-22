@@ -1,4 +1,5 @@
 import { buildSite } from "./build-site";
+import { reviseSiteJob } from "./revise-site";
 import { advancePhase, appendJobLog, claimNextJob, failJob, finishJob } from "./db";
 
 // Kareya build runner (KAR-46, ADR-0006): a stateless, container-ready worker
@@ -22,6 +23,12 @@ async function processOne(): Promise<boolean> {
       const result = await buildSite(job);
       await finishJob(job.id, result);
       console.log(`✓ job ${job.id} done — ${result.r2Prefix} (${result.uploaded} files)`);
+    } else if (job.type === "revise_site") {
+      const result = await reviseSiteJob(job);
+      await finishJob(job.id, result);
+      console.log(
+        `✓ job ${job.id} done — revision ${result.changed ? "applied" : "not applied"}`,
+      );
     } else {
       throw new Error(`Unknown job type: ${job.type}`);
     }
