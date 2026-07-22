@@ -1,4 +1,4 @@
-import type { Site, SitePage, SiteSection } from "@kareya/schemas";
+import type { Site, SiteDesign, SitePage, SiteSection } from "@kareya/schemas";
 
 // Site JSON → a real, self-contained Astro project (KAR-37; design v3 KAR-52;
 // multi-page agency wave KAR-55). Multi-page sites emit one .astro per page
@@ -92,6 +92,7 @@ function monogram(name: string): string {
 }
 
 type Ctx = {
+  design: SiteDesign;
   multiPage: boolean;
   servicesHref: string; // "#hizmetler" | "hizmetler.html"
   contactHref: string; // "#iletisim" | "iletisim.html"
@@ -118,9 +119,24 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
       <div class="absolute inset-0" style="${tint(7)}"></div>
       <div class="absolute inset-0 hidden opacity-40 sm:block" style="background-image: radial-gradient(color-mix(in srgb, var(--brand) 22%, white) 1px, transparent 1px); background-size: 22px 22px;"></div>
       <div class="absolute -right-32 -top-32 h-96 w-96 rounded-full blur-3xl" style="background: color-mix(in srgb, var(--brand) 16%, white);"></div>`;
-      if (s.imageUrl) {
+      // Art Direction (KAR-60): variant from design; photoSplit needs a photo.
+      const heroV = ctx.design.heroVariant;
+      if (heroV === "minimal") {
         return `
-    <section class="relative overflow-hidden">
+    <section id="hero" class="relative border-b border-gray-900/5">
+      <div class="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+        <h1 class="max-w-3xl text-4xl font-medium leading-[1.1] tracking-tight sm:text-5xl" style="color: var(--ink);">${esc(s.headline)}</h1>
+        ${s.subheadline ? `<p class="mt-6 max-w-2xl text-[17px] leading-relaxed sm:text-xl" style="color: var(--ink-soft);">${esc(s.subheadline)}</p>` : ""}
+        <div class="mt-10 flex flex-wrap items-center gap-3">
+          ${s.ctaLabel ? `<a href="${esc(s.ctaHref)}" class="rounded-xl px-8 py-4 font-semibold shadow-lg transition hover:opacity-90 hover:shadow-xl" style="background-color: var(--brand); color: var(--on-brand);">${esc(s.ctaLabel)}</a>` : ""}
+          ${ctx.hasServices ? `<a href="${ctx.servicesHref}" class="rounded-xl border border-gray-200 bg-white/80 px-8 py-4 font-semibold backdrop-blur transition hover:bg-white" style="color: var(--ink-soft);">Hizmetlerimiz</a>` : ""}
+        </div>
+      </div>
+    </section>`;
+      }
+      if (s.imageUrl && heroV !== "statement") {
+        return `
+    <section id="hero" class="relative overflow-hidden">
       ${bg}
       <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 text-center sm:py-28 lg:grid-cols-2 lg:text-left">
         <div>
@@ -136,7 +152,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
     </section>`;
       }
       return `
-    <section class="relative overflow-hidden">
+    <section id="hero" class="relative overflow-hidden">
       ${bg}
       <div class="relative mx-auto max-w-5xl px-6 py-28 text-center sm:py-36">
         <h1 class="text-4xl font-medium leading-[1.08] tracking-tight sm:text-7xl" style="color: var(--ink);">${esc(s.headline)}</h1>
@@ -162,7 +178,26 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
       </div>
     </section>`;
     }
-    case "services":
+    case "services": {
+      if (ctx.design.servicesVariant === "list") {
+        return `
+    <section id="hizmetler" class="mx-auto max-w-4xl px-6 py-20 sm:py-24">
+      ${sectionHeading("Neler yapıyoruz", s.title)}
+      <div class="mt-12 divide-y divide-gray-900/5 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-gray-900/5">
+        ${s.items
+          .map(
+            (it, i) => `<div class="flex items-start gap-6 p-7 transition hover:bg-gray-50/70">
+          <div class="text-2xl font-light tabular-nums" style="color: var(--brand-ink);">${String(i + 1).padStart(2, "0")}</div>
+          <div>
+            <h3 class="text-lg font-semibold" style="color: var(--ink);">${esc(it.name)}</h3>
+            ${it.description ? `<p class="mt-1.5 text-[15px] leading-relaxed" style="color: var(--ink-soft);">${esc(it.description)}</p>` : ""}
+          </div>
+        </div>`,
+          )
+          .join("\n        ")}
+      </div>
+    </section>`;
+      }
       return `
     <section id="hizmetler" class="mx-auto max-w-6xl px-6 py-20 sm:py-24">
       ${sectionHeading("Neler yapıyoruz", s.title)}
@@ -178,6 +213,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
           .join("\n        ")}
       </div>
     </section>`;
+    }
     case "process": {
       if (!s.steps.length) return "";
       return `
@@ -199,7 +235,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
     </section>`;
     }
     case "about": {
-      if (s.imageUrl) {
+      if (s.imageUrl && ctx.design.aboutVariant !== "centered") {
         return `
     <section id="hakkimizda" class="px-6 py-24 sm:py-32" style="${tint(5)}">
       <div class="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
@@ -341,6 +377,25 @@ function faqJsonLd(page: SitePage): string {
   return `<script type="application/ld+json">${JSON.stringify(data)}</script>`;
 }
 
+
+/**
+ * The one place the LLM writes real code (KAR-60): project-specific CSS
+ * appended to global.css. Sanitized — no imports, no external fetches — and
+ * size-capped; worst case is ugly styling, never a broken build or callout.
+ */
+export function sanitizeCustomCss(css: string): string {
+  return css
+    .replace(/@import[^;]*;?/gi, "")
+    .replace(/url\(\s*(['"]?)(?!data:)[^)]*\1\)/gi, "none")
+    .replace(/<\/?style[^>]*>/gi, "")
+    .slice(0, 6000);
+}
+
+function customCssBlock(design: SiteDesign): string {
+  const css = sanitizeCustomCss(design.customCss ?? "");
+  return css ? `\n/* Art Direction custom CSS */\n${css}\n` : "";
+}
+
 function pageFileName(path: string): string {
   return path === "/" ? "index" : path.replace(/^\/+/, "").replace(/\/+$/, "");
 }
@@ -356,6 +411,7 @@ export function generateAstroProject(site: Site): Record<string, string> {
   const contactPage = pageFiles.find((p) => p.page.sections.some((s) => s.type === "contact"));
 
   const ctx: Ctx = {
+    design: site.design,
     multiPage,
     hasServices: hasServicesAnywhere,
     servicesHref: multiPage ? `${servicesPage?.file ?? "index"}.html` : "#hizmetler",
@@ -459,7 +515,7 @@ import "../styles/global.css";
     <link rel="icon" href="${faviconHref}" />
     ${faqJsonLd(page)}
   </head>
-  <body class="antialiased" style="--brand: ${esc(site.brand.primary)}; --on-brand: ${onBrand(site.brand.primary)}; --brand-ink: ${brandInk(site.brand.primary)}; background: var(--surface); color: var(--ink-soft);">
+  <body class="antialiased" data-density="${ctx.design.density}" data-radius="${ctx.design.radius}" style="--brand: ${esc(site.brand.primary)}; --on-brand: ${onBrand(site.brand.primary)}; --brand-ink: ${brandInk(site.brand.primary)}; background: var(--surface); color: var(--ink-soft);">
 ${header(file)}
     <main>
 ${sections}
@@ -483,7 +539,7 @@ import "../styles/global.css";
     <meta name="robots" content="noindex" />
     <link rel="icon" href="${faviconHref}" />
   </head>
-  <body class="antialiased" style="--brand: ${esc(site.brand.primary)}; --on-brand: ${onBrand(site.brand.primary)}; --brand-ink: ${brandInk(site.brand.primary)}; background: var(--surface); color: var(--ink-soft);">
+  <body class="antialiased" data-density="${ctx.design.density}" data-radius="${ctx.design.radius}" style="--brand: ${esc(site.brand.primary)}; --on-brand: ${onBrand(site.brand.primary)}; --brand-ink: ${brandInk(site.brand.primary)}; background: var(--surface); color: var(--ink-soft);">
 ${header("kvkk")}
     <main class="mx-auto max-w-3xl px-6 py-16">
       <h1 class="text-3xl font-semibold tracking-tight" style="color: var(--ink);">KVKK Aydınlatma Metni</h1>
@@ -556,7 +612,22 @@ h3 {
   background: color-mix(in srgb, var(--brand) 30%, white);
   color: var(--ink);
 }
-`,
+
+/* Art Direction tokens (KAR-60): density + radius, driven by body attributes. */
+[data-density="compact"] .py-20 { padding-block: 3.5rem; }
+[data-density="compact"] .py-24 { padding-block: 4rem; }
+[data-density="compact"] .py-28 { padding-block: 4.5rem; }
+[data-density="compact"] .sm\\:py-24 { padding-block: 4rem; }
+[data-density="compact"] .sm\\:py-28 { padding-block: 4.5rem; }
+[data-density="compact"] .sm\\:py-32 { padding-block: 5rem; }
+[data-density="compact"] .sm\\:py-36 { padding-block: 5.5rem; }
+[data-radius="sharp"] .rounded-xl { border-radius: 0.375rem; }
+[data-radius="sharp"] .rounded-2xl { border-radius: 0.5rem; }
+[data-radius="sharp"] .rounded-3xl { border-radius: 0.625rem; }
+[data-radius="round"] .rounded-xl { border-radius: 1rem; }
+[data-radius="round"] .rounded-2xl { border-radius: 1.5rem; }
+[data-radius="round"] .rounded-3xl { border-radius: 2rem; }
+${customCssBlock(site.design)}`,
     "src/pages/kvkk.astro": kvkkAstro,
     "README.md": `# ${name}\n\nBu site **kareya** ile üretildi (Site JSON → Astro). Statik site.\n\n\`\`\`bash\nnpm install\nnpm run build   # dist/ altında statik çıktı\nnpm run dev     # yerel önizleme\n\`\`\`\n`,
     ".gitignore": `node_modules/\ndist/\n.astro/\n`,

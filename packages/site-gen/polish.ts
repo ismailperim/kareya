@@ -12,6 +12,7 @@ function buildPrompt(site: Site, brief: Brief): string {
 
 KURALLAR:
 - JSON yapısını AYNEN koru: aynı anahtarlar, aynı section sırası, aynı section type'ları, aynı eleman sayıları. Yapı ekleme/çıkarma YASAK.
+- "design" alanına DOKUNMA — aynen kopyala (art director'ün işi, senin değil).
 - Sadece şu metin alanlarını iyileştir: hero headline/subheadline/ctaLabel, services items name/description (boş description'ları doldur), process steps title/description (işletmeye göre uyarla), about title/body (2-3 kısa paragraf, \\n ile ayır), whyUs points title/description, ctaBanner headline/ctaLabel (kısa, dönüşüm odaklı), testimonials başlığı (alıntıların METNİNİ DEĞİŞTİRME, yenisini UYDURMA), faq items (soruları doğal soru cümlesine çevir + brief/notlara dayanarak kısa net cevaplar yaz; kesin bilgi yoksa "netleştirelim" tonunda genel cevap), contact title.
 - statsBar items: SADECE brief/notlarda GEÇEN gerçek rakamlarla doldur (ör. "15 yıl" → {"value":"15+","label":"Yıl Deneyim"}); 2-4 öğe; gerçek rakam yoksa BOŞ bırak ([]) — rakam UYDURMA.
 - MARKA RENGİ: brand.primary ve brand.accent hex değerlerini müşterinin renk tercihine göre ayarla. Müşteri tercihi: "${brief.brand.colors ?? "belirtilmedi"}". Tercih belirtilmişse ona uygun, uyumlu ve erişilebilir (beyaz metinle yeterli kontrast) bir palet seç; belirtilmemişse mevcut değerleri koru.

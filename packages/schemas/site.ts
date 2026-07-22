@@ -139,6 +139,22 @@ export const sitePageSchema = z.object({
 });
 export type SitePage = z.infer<typeof sitePageSchema>;
 
+// Art Direction (KAR-60): per-project layout identity. Variants are picked
+// from the deterministic kit catalog (the LLM SELECTS, the kit renders);
+// customCss is the one place the LLM writes real code — appended to
+// global.css after sanitization, it can restyle but never break a build.
+// rationale doubles as the "was this chosen?" marker (empty = defaults).
+export const designSchema = z.object({
+  heroVariant: z.enum(["auto", "statement", "photoSplit", "minimal"]).default("auto"),
+  servicesVariant: z.enum(["cards", "list"]).default("cards"),
+  aboutVariant: z.enum(["auto", "split", "centered"]).default("auto"),
+  density: z.enum(["airy", "compact"]).default("airy"),
+  radius: z.enum(["sharp", "soft", "round"]).default("soft"),
+  customCss: z.string().default(""),
+  rationale: z.string().default(""),
+});
+export type SiteDesign = z.infer<typeof designSchema>;
+
 export const siteSchema = z.object({
   schemaVersion: z.string().default("0.1.0"),
   meta: z
@@ -157,6 +173,16 @@ export const siteSchema = z.object({
   social: z
     .object({ instagram: z.string().default(""), facebook: z.string().default("") })
     .default({ instagram: "", facebook: "" }),
+  /** Art Direction (KAR-60) — defaults render exactly the pre-KAR-60 site. */
+  design: designSchema.default({
+    heroVariant: "auto",
+    servicesVariant: "cards",
+    aboutVariant: "auto",
+    density: "airy",
+    radius: "soft",
+    customCss: "",
+    rationale: "",
+  }),
   pages: z.array(sitePageSchema).default([]),
 });
 export type Site = z.infer<typeof siteSchema>;
