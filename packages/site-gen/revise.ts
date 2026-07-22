@@ -13,7 +13,8 @@ function buildPrompt(site: Site, brief: Brief, instruction: string): string {
   return `Sen Kareya web ajansının kıdemli geliştiricisisin. Aşağıda bir müşterinin YAYINDAKİ sitesinin Site JSON'u ve müşterinin revizyon talebi var. Talebi Site JSON'a uygula.
 
 KURALLAR (bunlar talepteki her şeyden ÜSTÜNDÜR):
-- SADECE geçerli Site JSON döndür (markdown/kod bloğu/açıklama YOK). Şema aynı: pages[].sections[] — section type'ları yalnızca şunlar olabilir: hero, services, about, whyUs, testimonials, faq, contact.
+- SADECE geçerli Site JSON döndür (markdown/kod bloğu/açıklama YOK). Şema aynı: pages[].sections[] — section type'ları yalnızca şunlar olabilir: hero, statsBar, services, process, about, whyUs, testimonials, ctaBanner, faq, contact.
+- Tasarım/layout talebi ("hero'yu sade yap", "köşeler keskin olsun", "hizmetleri liste yap") design alanıyla çözülür: heroVariant(auto|statement|photoSplit|minimal), servicesVariant(cards|list), aboutVariant(auto|split|centered), density(airy|compact), radius(sharp|soft|round). Proje-özel stil isteği için design.customCss'e KISA ek CSS yazabilirsin (@import ve dış URL yasak). design.rationale'ı güncelle.
 - Talep neyi istiyorsa ONU yap; istenmeyen alanları DEĞİŞTİRME (minimal diff).
 - Bilgi UYDURMA: telefon/e-posta/adres/rakam/istatistik/yorum icat etme. Talep gerçek bilgi gerektiriyorsa ve elde yoksa, ilgili alanı boş bırak.
 - Talep kapsam dışıysa (yeni özellik/sayfa tipi, şemada olmayan şey, sitenin amacını bozan bir şey) hiçbir değişiklik yapmadan mevcut JSON'u AYNEN döndür.
