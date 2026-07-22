@@ -59,6 +59,30 @@ const testimonialsSection = z.object({
     .default([]),
 });
 
+// Trust-number strip (agency wave). Assemble seeds it empty; polish fills it
+// from REAL facts only; renderers skip it when items stay empty.
+const statsBarSection = z.object({
+  type: z.literal("statsBar"),
+  items: z
+    .array(z.object({ value: z.string(), label: z.string() }))
+    .default([]),
+});
+
+const processSection = z.object({
+  type: z.literal("process"),
+  title: z.string().default("Nasıl Çalışıyoruz?"),
+  steps: z
+    .array(z.object({ title: z.string(), description: z.string().default("") }))
+    .default([]),
+});
+
+const ctaBannerSection = z.object({
+  type: z.literal("ctaBanner"),
+  headline: z.string().default("Projenizi konuşalım"),
+  ctaLabel: z.string().default("İletişime geçin"),
+  ctaHref: z.string().default("#iletisim"),
+});
+
 const faqSection = z.object({
   type: z.literal("faq"),
   title: z.string().default("Sık Sorulan Sorular"),
@@ -76,14 +100,19 @@ const contactSection = z.object({
   hours: z.string().default(""),
   whatsapp: z.string().default(""),
   showForm: z.boolean().default(true),
+  /** Google Maps embed (map feature + address present). */
+  showMap: z.boolean().default(false),
 });
 
 export const siteSectionSchema = z.discriminatedUnion("type", [
   heroSection,
+  statsBarSection,
   servicesSection,
+  processSection,
   aboutSection,
   whyUsSection,
   testimonialsSection,
+  ctaBannerSection,
   faqSection,
   contactSection,
 ]);
@@ -92,10 +121,13 @@ export type SiteSectionType = SiteSection["type"];
 
 export const SITE_SECTION_TYPES = [
   "hero",
+  "statsBar",
   "services",
+  "process",
   "about",
   "whyUs",
   "testimonials",
+  "ctaBanner",
   "faq",
   "contact",
 ] as const;
@@ -121,6 +153,10 @@ export const siteSchema = z.object({
   whatsapp: z
     .object({ enabled: z.boolean().default(false), number: z.string().default("") })
     .default({ enabled: false, number: "" }),
+  /** Footer social links (flows from the brief). */
+  social: z
+    .object({ instagram: z.string().default(""), facebook: z.string().default("") })
+    .default({ instagram: "", facebook: "" }),
   pages: z.array(sitePageSchema).default([]),
 });
 export type Site = z.infer<typeof siteSchema>;
