@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { isDbConfigured } from "@/lib/db";
+import { getSessionId } from "@/lib/meeting-repo";
+
 // Mints a short-lived ElevenLabs conversation token for a WebRTC session.
 // The API key is server-only and NEVER sent to the client — the client
 // receives only the opaque per-session token (see ADR-0003 + docs).
@@ -12,9 +15,12 @@ export async function POST(
 ) {
   const { token } = await params;
 
-  // MVP access check — mirrors the meeting page. Real single-use, account-bound
-  // token validation (via Neon) + hardening comes in a later ticket.
+  // Voice minutes cost money: only sessions that actually exist (minted via
+  // invite code or ops — KAR-42) may mint a conversation token.
   if (!token || token.length < 8) {
+    return NextResponse.json({ error: "invalid_token" }, { status: 404 });
+  }
+  if (isDbConfigured && !(await getSessionId(token))) {
     return NextResponse.json({ error: "invalid_token" }, { status: 404 });
   }
 

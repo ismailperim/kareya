@@ -13,7 +13,7 @@ Kareya is intentionally bilingual — each language has a job:
 | Code, comments, commit messages, PRs, ADRs (`docs/architecture/decisions/`), README, this file | **English** | Standard open-source practice — reviewable by anyone. |
 | LLM prompts inside the code (`packages/site-gen/*.ts`, `apps/portal/lib/meeting/agent-config.ts`) | **Turkish** | They are *functional*: they instruct models to produce Turkish customer-facing copy and to hold a Turkish voice conversation. Translating them would change product behavior. Each prompt has an English comment explaining what it does. |
 | Product UI (meeting room, portal), KVKK text, generated sites | **Turkish** | The customer is a Turkish business owner. |
-| Strategy & process docs (`docs/DESIGN.md`, `docs/process/`, `CLAUDE.md`) | **Turkish** | Internal operating docs. An English architecture summary lives at [`docs/DESIGN.en.md`](docs/DESIGN.en.md). |
+| Strategy & process docs (`docs/DESIGN.md`, `docs/process/`, `CLAUDE.md`) and the AI operating model (`.claude/agents/`, `.claude/commands/`) | **Turkish** | Internal operating docs — how the maintainer's AI dev team runs. The `/modus:*` commands are wired to the maintainer's Linear workspace; external contributors use plain GitHub issues/PRs instead. An English architecture summary lives at [`docs/DESIGN.en.md`](docs/DESIGN.en.md). |
 
 Rule of thumb: **if a developer reads it, write English; if the customer (or
 the customer-facing model output) reads it, write Turkish.** Don't "fix" the
