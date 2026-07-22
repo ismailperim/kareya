@@ -50,6 +50,9 @@ export type BuildSiteJobPayload = {
   token: string;
   /** Version in the `brief` table to build from (latest if omitted). */
   briefVersion?: number;
+  /** Owning project (KAR-39). Publishing uses the slug; token is the fallback. */
+  projectId?: string;
+  slug?: string;
 };
 
 /** Payload for a revise_site job (KAR-41 — chat-driven revision). */

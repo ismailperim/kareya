@@ -5,7 +5,7 @@ import { parseSite, safeParseBrief, type Site } from "@kareya/schemas";
 import { DEMO_SITE } from "@/components/site-kit/demo-site";
 import { SiteRenderer } from "@/components/site-kit/SiteRenderer";
 import { isDbConfigured } from "@/lib/db";
-import { getCurrentSite, getDraft } from "@/lib/meeting-repo";
+import { getCurrentSite, getDraft, getProjectForToken } from "@/lib/meeting-repo";
 import { briefToSite } from "@kareya/site-gen";
 
 // Per-site preview (KAR-32/33/56). One link, always the right page:
@@ -27,7 +27,12 @@ export default async function SitePreview({
   if (isDbConfigured && id && id.length >= 8) {
     try {
       const built = await getCurrentSite(id);
-      if (built) redirect(`${PREVIEW_BASE}/sites/${id}/index.html`);
+      if (built) {
+        // Project publish path (sites/<slug>) when attached; token path legacy.
+        const project = await getProjectForToken(id);
+        const prefix = project?.r2_prefix ?? `sites/${id}`;
+        redirect(`${PREVIEW_BASE}/${prefix}/index.html`);
+      }
       const draft = await getDraft(id);
       const parsed = draft ? safeParseBrief(draft) : null;
       if (parsed?.success) site = briefToSite(parsed.data);

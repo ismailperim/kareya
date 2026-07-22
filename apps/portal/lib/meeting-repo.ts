@@ -86,6 +86,91 @@ export async function getCurrentSite(token: string): Promise<unknown | null> {
   return rows.length ? (rows[0].current_site ?? null) : null;
 }
 
+// ---- Project model (KAR-39) ----
+
+export type ProjectRef = { id: string; slug: string; name: string };
+
+/** URL-safe slug from a Turkish business name. */
+export function slugify(name: string): string {
+  const map: Record<string, string> = {
+    ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u",
+    Ç: "c", Ğ: "g", İ: "i", I: "i", Ö: "o", Ş: "s", Ü: "u",
+  };
+  const full = name
+    .split("")
+    .map((ch) => map[ch] ?? ch)
+    .join("")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (full.length <= 40) return full || "proje";
+  // Cut at a word boundary — no mid-word tails like "…-ticaret-l".
+  const cut = full.slice(0, 40);
+  const atBoundary = cut.replace(/-[^-]*$/, "");
+  return atBoundary || cut;
+}
+
+/**
+ * On approval the meeting attaches to a project (KAR-39). Reuses the session's
+ * existing project; otherwise creates one with a unique slug.
+ */
+export async function findOrCreateProjectForSession(
+  token: string,
+  businessName: string,
+): Promise<ProjectRef> {
+  const sql = getDb();
+  const existing = await sql`
+    select p.id, p.slug, p.name
+    from meeting_session s join project p on p.id = s.project_id
+    where s.token = ${token}
+  `;
+  if (existing.length && existing[0].slug) return existing[0] as unknown as ProjectRef;
+
+  const name = businessName.trim() || "Yeni Proje";
+  const base = slugify(name);
+  // Unique slug: base, then base-2, base-3, …
+  const taken = await sql`select slug from project where slug like ${base + "%"}`;
+  const takenSet = new Set(taken.map((r) => r.slug as string));
+  let slug = base;
+  for (let i = 2; takenSet.has(slug); i++) slug = `${base}-${i}`;
+
+  const created = await sql`
+    insert into project (name, slug, phase)
+    values (${name}, ${slug}, 'BRIEF_COMPLETED')
+    returning id, slug, name
+  `;
+  const project = created[0] as unknown as ProjectRef;
+  await sql`update meeting_session set project_id = ${project.id}, updated_at = now() where token = ${token}`;
+  return project;
+}
+
+/** Link a saved brief version to its project. */
+export async function linkBriefToProject(
+  token: string,
+  version: number,
+  projectId: string,
+): Promise<void> {
+  const sql = getDb();
+  await sql`
+    update brief set project_id = ${projectId}
+    where version = ${version}
+      and meeting_session_id = (select id from meeting_session where token = ${token})
+  `;
+}
+
+/** Project publish prefix for a token (sites/<slug>), or null if no project. */
+export async function getProjectForToken(token: string): Promise<
+  (ProjectRef & { r2_prefix: string | null; phase: string }) | null
+> {
+  const sql = getDb();
+  const rows = await sql`
+    select p.id, p.slug, p.name, p.r2_prefix, p.phase
+    from meeting_session s join project p on p.id = s.project_id
+    where s.token = ${token}
+  `;
+  return rows.length ? (rows[0] as never) : null;
+}
+
 /** Save the live brief draft (KAR-26 resume). Upserts the session. */
 export async function saveDraft(token: string, brief: unknown): Promise<void> {
   const sql = getDb();
@@ -145,5 +230,11 @@ export async function advancePhase(token: string, to: Phase): Promise<boolean> {
   const current = rows[0]?.phase as string | undefined;
   if (!current || !isPhase(current) || !canTransition(current, to)) return false;
   await setPhase(token, to);
+  // The project owns the phase (KAR-39); the session mirrors it during the
+  // transition period so existing room/ops reads keep working.
+  await sql`
+    update project set phase = ${to}, updated_at = now()
+    where id = (select project_id from meeting_session where token = ${token})
+  `;
   return true;
 }

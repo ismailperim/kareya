@@ -17,8 +17,10 @@ import {
 import {
   advancePhase,
   appendJobLog,
+  getPublishPrefix,
   loadBrief,
   saveCurrentSite,
+  saveR2Prefix,
   type ClaimedJob,
 } from "./db";
 import { env, requireEnv } from "./env";
@@ -70,7 +72,7 @@ export function contentLlm() {
  */
 export async function materializeBuildPublish(
   jobId: string,
-  token: string,
+  r2Prefix: string,
   files: Record<string, string>,
   imageFiles: Record<string, Buffer>,
 ): Promise<{ r2Prefix: string; uploaded: number }> {
@@ -95,7 +97,6 @@ export async function materializeBuildPublish(
     const rewritten = relativizeAssetPaths(join(work, "dist"));
     await log(`static build complete (assets relativized in ${rewritten} page)`);
 
-    const r2Prefix = `sites/${token}`;
     const keys = await uploadDirToR2(join(work, "dist"), r2Prefix, r2Creds(), () => {});
     await log(`published ${keys.length} files → r2://${r2Creds().bucket}/${r2Prefix}`);
     return { r2Prefix, uploaded: keys.length };
@@ -181,13 +182,16 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     await log("no image provider — set PEXELS_API_KEY (free) for photos");
   }
 
-  // 2d) Generate + build + publish.
+  // 2d) Generate + build + publish (project slug path when available — KAR-39).
   const files = generateAstroProject(site);
   await log(`astro project generated → ${Object.keys(files).length} files`);
-  const { r2Prefix, uploaded } = await materializeBuildPublish(job.id, token, files, imageFiles);
+  const slug = (job.payload as { slug?: string }).slug;
+  const prefix = slug ? `sites/${slug}` : await getPublishPrefix(token);
+  const { r2Prefix, uploaded } = await materializeBuildPublish(job.id, prefix, files, imageFiles);
 
   // 3) Persist the generated state (revisions patch this) + advance the phase.
   await saveCurrentSite(token, site);
+  await saveR2Prefix(token, r2Prefix);
   const advanced = await advancePhase(token, "PREVIEW_READY");
   await log(advanced ? "phase → PREVIEW_READY" : "phase NOT advanced (unexpected current phase)");
 
