@@ -41,11 +41,15 @@ const PAGE_DEFS: Record<string, { path: string; title: string }> = {
   iletisim: { path: "iletisim", title: "İletişim" },
 };
 
-/** Which section types live on which page in multi-page mode. */
+/**
+ * Which section types live on which page in multi-page mode. The homepage
+ * stays RICH (full single-scroll story — services/about included); subpages
+ * are the SEO/detail views (hizmetler adds the process, iletisim the map).
+ */
 const PAGE_SECTIONS: Record<string, SiteSection["type"][]> = {
-  "/": ["hero", "statsBar", "whyUs", "testimonials", "ctaBanner", "faq"],
-  hizmetler: ["services", "process"],
-  hakkimizda: ["about"],
+  "/": ["hero", "statsBar", "services", "about", "whyUs", "testimonials", "ctaBanner", "faq"],
+  hizmetler: ["services", "process", "ctaBanner"],
+  hakkimizda: ["about", "whyUs"],
   iletisim: ["contact"],
 };
 
