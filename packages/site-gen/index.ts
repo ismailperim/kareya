@@ -3,6 +3,7 @@
 
 export * from "./art-direction";
 export * from "./assemble";
+export * from "./design-pass";
 export * from "./generate";
 export * from "./publish";
 export * from "./llm";

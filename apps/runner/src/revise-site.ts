@@ -5,9 +5,15 @@ import {
   generateAstroProject,
   geminiLlm,
   reviseSite,
+  uploadFilesToR2,
 } from "@kareya/site-gen";
 
-import { materializeBuildPublish, r2Creds } from "./build-site";
+import {
+  materializeBuildPublish,
+  r2Creds,
+  restoreDesignOverrides,
+  sourcePrefixFor,
+} from "./build-site";
 import {
   advancePhase,
   appendJobLog,
@@ -89,8 +95,24 @@ export async function reviseSiteJob(job: ClaimedJob): Promise<ReviseSiteResult> 
     await log(`restored ${Object.keys(imageFiles).length} image(s) from R2`);
   }
 
+  // Keep the pinned Design Pass layout (KAR-62): a content revision changes
+  // site.json, not the custom-written components.
   const files = generateAstroProject(result.site);
+  const overrides = await restoreDesignOverrides(prefix);
+  if (overrides) {
+    Object.assign(files, overrides);
+    await log(`design pass preserved (${Object.keys(overrides).length} components)`);
+  }
   const { r2Prefix, uploaded } = await materializeBuildPublish(job.id, prefix, files, imageFiles);
+
+  // Refresh the published source tree (content changed; sources/<slug>/ is
+  // the customer's canonical code — KAR-63).
+  try {
+    await uploadFilesToR2({ ...files, ...imageFiles }, sourcePrefixFor(prefix), r2Creds());
+    await log("source refreshed");
+  } catch (err) {
+    await log(`source refresh skipped (${err instanceof Error ? err.message : err})`);
+  }
 
   const advanced = await advancePhase(token, "PREVIEW_READY");
   await log(advanced ? "phase → PREVIEW_READY" : "phase NOT advanced");
