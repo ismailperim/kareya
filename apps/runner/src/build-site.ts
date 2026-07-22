@@ -4,10 +4,16 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { safeParseBrief } from "@kareya/schemas";
-import { briefToSite, generateAstroProject, uploadDirToR2 } from "@kareya/site-gen";
+import {
+  briefToSite,
+  generateAstroProject,
+  pickLlm,
+  polishSite,
+  uploadDirToR2,
+} from "@kareya/site-gen";
 
 import { advancePhase, appendJobLog, loadBrief, type ClaimedJob } from "./db";
-import { requireEnv } from "./env";
+import { env, requireEnv } from "./env";
 
 // build_site job (KAR-46): brief → Site JSON → Astro project → static build →
 // R2 publish → phase PREVIEW_READY. Runs in an isolated temp worktree per job
@@ -45,10 +51,32 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
   const brief = parsed.data;
   await log(`brief loaded (version=${briefVersion ?? "latest"}, business=${brief.business.name ?? "?"})`);
 
-  // 2) Assemble Site JSON + generate the Astro project.
-  const site = briefToSite(brief);
+  // 2) Assemble Site JSON (structure is deterministic).
+  let site = briefToSite(brief);
+  await log(`site assembled (${site.pages[0]?.sections.length ?? 0} sections)`);
+
+  // 2b) Content polish (KAR-50): LLM rewrites the copy only — structure never
+  // changes; any failure falls back to the deterministic baseline.
+  const llmChoice = pickLlm({
+    GEMINI_API_KEY: env("GEMINI_API_KEY"),
+    ANTHROPIC_API_KEY: env("ANTHROPIC_API_KEY"),
+    LLM_MODEL: env("LLM_MODEL"),
+  });
+  if (llmChoice) {
+    const polished = await polishSite(site, brief, llmChoice.llm);
+    site = polished.site;
+    await log(
+      polished.polished
+        ? `content polished (${llmChoice.name})`
+        : `content polish skipped (${llmChoice.name}: ${polished.error}) — deterministic copy`,
+    );
+  } else {
+    await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
+  }
+
+  // 2c) Generate the Astro project from the (possibly polished) site.
   const files = generateAstroProject(site);
-  await log(`site assembled (${site.pages[0]?.sections.length ?? 0} sections) → ${Object.keys(files).length} files`);
+  await log(`astro project generated → ${Object.keys(files).length} files`);
 
   // 3) Materialize into an isolated temp worktree.
   const work = mkdtempSync(join(tmpdir(), `kareya-build-${job.id.slice(0, 8)}-`));
