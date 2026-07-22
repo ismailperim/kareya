@@ -46,6 +46,7 @@ const body = {
         dynamic_variable_placeholders: {
           collected_summary: "Henüz bilgi toplanmadı.",
           greeting: FIRST_MESSAGE,
+          site_status: "henüz yok",
         },
       },
       prompt: {
