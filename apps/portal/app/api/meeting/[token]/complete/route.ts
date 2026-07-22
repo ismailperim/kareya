@@ -61,8 +61,9 @@ export async function POST(
       await linkBriefToProject(token, version, project.id);
       console.log(`[meeting/complete] project=${project.slug} (${project.id.slice(0, 8)}…)`);
 
-      // Workflow trigger (KAR-45): queue the site build; the runner picks it up.
-      jobId = await enqueueJob("build_site", {
+      // Workflow trigger (KAR-45; KAR-63 split): queue the writer stage — it
+      // chains a build_publish job when the sources are ready.
+      jobId = await enqueueJob("write_code", {
         token,
         briefVersion: version,
         projectId: project.id,
@@ -70,7 +71,7 @@ export async function POST(
       });
       const advanced = await advancePhase(token, "BUILDING");
       if (!advanced) console.warn("[meeting/complete] phase not advanced to BUILDING");
-      console.log(`[meeting/complete] build_site queued job=${jobId}`);
+      console.log(`[meeting/complete] write_code queued job=${jobId}`);
     } catch (err) {
       // Completion still succeeds for the customer; the build can be re-queued
       // from the ops dashboard.
