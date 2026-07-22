@@ -146,9 +146,12 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
   }
 
-  // Brand pin: once chosen, the palette is part of the brand — rebuilds keep it
-  // (revisions can still change it explicitly).
-  if (prev) {
+  // Brand pin: once CHOSEN, the palette is part of the brand — rebuilds keep it
+  // (revisions can still change it explicitly). Tone defaults don't count as
+  // chosen: they mean polish never applied the customer's color preference, so
+  // give this build's polish another chance instead of pinning the placeholder.
+  const TONE_DEFAULT_PRIMARIES = new Set(["#4F46E5", "#0EA5E9", "#7C3AED"]);
+  if (prev && !TONE_DEFAULT_PRIMARIES.has(prev.brand.primary.toUpperCase())) {
     site = { ...site, brand: prev.brand };
     await log(`brand pinned from previous build (${prev.brand.primary})`);
   }
