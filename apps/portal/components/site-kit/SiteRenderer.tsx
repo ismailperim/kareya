@@ -33,6 +33,20 @@ export function SiteRenderer({ site }: { site: Site }) {
       <footer className="border-t border-black/5 py-8 text-center text-sm text-gray-400">
         © {site.meta.businessName || "İşletme"} · kareya ile hazırlandı
       </footer>
+
+      {site.whatsapp.enabled && (
+        <a
+          href={
+            site.whatsapp.number
+              ? `https://wa.me/${site.whatsapp.number.replace(/\D/g, "")}`
+              : "#iletisim"
+          }
+          aria-label="WhatsApp ile yazın"
+          className="fixed bottom-5 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-2xl text-white shadow-lg transition hover:scale-105"
+        >
+          💬
+        </a>
+      )}
     </div>
   );
 }

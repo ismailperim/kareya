@@ -12,14 +12,16 @@ function buildPrompt(site: Site, brief: Brief): string {
 
 KURALLAR:
 - JSON yapısını AYNEN koru: aynı anahtarlar, aynı section sırası, aynı section type'ları, aynı eleman sayıları. Yapı ekleme/çıkarma YASAK.
-- Sadece şu metin alanlarını iyileştir: hero headline/subheadline/ctaLabel, services items name/description (boş description'ları doldur), about title/body (2-3 kısa paragraf, \\n ile ayır), whyUs points title/description, testimonials başlığı (alıntıların METNİNİ DEĞİŞTİRME, yenisini UYDURMA), contact title.
-- Bilgi UYDURMA: yalnızca brief'te/notlarda olan gerçekleri kullan. Emin olmadığın rakam/iddia yazma.
+- Sadece şu metin alanlarını iyileştir: hero headline/subheadline/ctaLabel, services items name/description (boş description'ları doldur), about title/body (2-3 kısa paragraf, \\n ile ayır), whyUs points title/description, testimonials başlığı (alıntıların METNİNİ DEĞİŞTİRME, yenisini UYDURMA), faq items (soruları doğal soru cümlesine çevir + brief/notlara dayanarak kısa net cevaplar yaz; kesin bilgi yoksa "netleştirelim" tonunda genel cevap), contact title.
+- MARKA RENGİ: brand.primary ve brand.accent hex değerlerini müşterinin renk tercihine göre ayarla. Müşteri tercihi: "${brief.brand.colors ?? "belirtilmedi"}". Tercih belirtilmişse ona uygun, uyumlu ve erişilebilir (beyaz metinle yeterli kontrast) bir palet seç; belirtilmemişse mevcut değerleri koru.
+- Bilgi UYDURMA: yalnızca brief'te/notlarda olan gerçekleri kullan. Emin olmadığın rakam/iddia yazma. Telefon/e-posta/adres UYDURMA.
 - Ton: ${brief.brand.tone ?? "kurumsal"}. Dil: Türkçe.
 - ÇIKTI: SADECE geçerli JSON döndür. Markdown, açıklama, kod bloğu YOK.
 
 MÜŞTERİ BRIEF ÖZETİ:
 - İşletme: ${brief.business.name ?? "-"} (${brief.business.sector ?? "-"})
 - Slogan: ${brief.business.tagline ?? "-"} · Bölge: ${brief.business.region ?? "-"}
+- Renk tercihi: ${brief.brand.colors ?? "-"}
 - Görüşme notları: ${brief.notes ? brief.notes.slice(0, 1200) : "-"}
 
 TASLAK SITE JSON:

@@ -93,6 +93,21 @@ function renderSection(s: SiteSection): string {
         </div>
       </div>
     </section>`;
+    case "faq":
+      return `
+    <section class="mx-auto max-w-3xl px-6 py-16">
+      ${sectionTitle(s.title)}
+      <div class="mt-8 space-y-3">
+        ${s.items
+          .map(
+            (it) => `<details class="group rounded-xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-medium text-gray-900">${esc(it.question)}<span class="transition group-open:rotate-45" style="color: var(--brand);">+</span></summary>
+          ${it.answer ? `<p class="mt-2 text-sm leading-relaxed text-gray-600">${esc(it.answer)}</p>` : ""}
+        </details>`,
+          )
+          .join("\n        ")}
+      </div>
+    </section>`;
     case "contact": {
       const row = (icon: string, label: string) =>
         `<div class="flex items-center gap-3"><span class="flex h-9 w-9 items-center justify-center rounded-lg" style="${tint(12)}">${icon}</span><span class="text-gray-700">${esc(label)}</span></div>`;
@@ -147,6 +162,13 @@ export function generateAstroProject(site: Site): Record<string, string> {
       © ${esc(name)} · kareya ile hazırlandı
     </footer>`;
 
+  // Floating WhatsApp button (feature-driven). Real number → wa.me; no number →
+  // link to the contact section (a number is never invented).
+  const whatsappFloat = site.whatsapp.enabled
+    ? `
+    <a href="${site.whatsapp.number ? `https://wa.me/${site.whatsapp.number.replace(/\D/g, "")}` : "#iletisim"}" aria-label="WhatsApp ile yazın" class="fixed bottom-5 right-5 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-2xl text-white shadow-lg transition hover:scale-105">💬</a>`
+    : "";
+
   const indexAstro = `---
 import "../styles/global.css";
 ---
@@ -163,7 +185,7 @@ ${header}
     <main>
 ${sections}
     </main>
-${footer}
+${footer}${whatsappFloat}
   </body>
 </html>
 `;
