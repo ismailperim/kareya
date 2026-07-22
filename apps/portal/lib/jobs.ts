@@ -1,4 +1,4 @@
-import type { BuildSiteJobPayload, JobType } from "@kareya/schemas";
+import type { BuildSiteJobPayload, JobType, ReviseSiteJobPayload } from "@kareya/schemas";
 
 import { getDb } from "@/lib/db";
 
@@ -20,7 +20,7 @@ export type JobRow = {
 
 export async function enqueueJob(
   type: JobType,
-  payload: BuildSiteJobPayload,
+  payload: BuildSiteJobPayload | ReviseSiteJobPayload,
 ): Promise<string> {
   const sql = getDb();
   const rows = await sql`
