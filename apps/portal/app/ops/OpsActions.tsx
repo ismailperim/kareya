@@ -150,7 +150,7 @@ export function PhaseButton({
   );
 }
 
-/** Invite-code creation (KAR-42) — new codes open the /davet door. */
+/** Invite-code creation (KAR-42) — new codes open the /invite door. */
 export function CreateInviteForm() {
   const router = useRouter();
   const [note, setNote] = useState("");
