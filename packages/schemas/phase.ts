@@ -42,7 +42,7 @@ export function isPhase(v: unknown): v is Phase {
 
 // ---- Job types (queue contract between the portal and the runner) ----
 
-export const JOB_TYPES = ["build_site"] as const;
+export const JOB_TYPES = ["build_site", "revise_site"] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
 /** Payload for a build_site job. */
@@ -50,4 +50,11 @@ export type BuildSiteJobPayload = {
   token: string;
   /** Version in the `brief` table to build from (latest if omitted). */
   briefVersion?: number;
+};
+
+/** Payload for a revise_site job (KAR-41 — chat-driven revision). */
+export type ReviseSiteJobPayload = {
+  token: string;
+  /** The revision request in natural language ("başlığı X yap"). */
+  instruction: string;
 };

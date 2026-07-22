@@ -77,6 +77,56 @@ export function RetryJobButton({ jobId }: { jobId: string }) {
   );
 }
 
+// "Kardeş şu metni değiştir" — queue a chat-driven revision (KAR-41).
+export function RevisionForm({ token }: { token: string }) {
+  const router = useRouter();
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+
+  const submit = async () => {
+    if (!text.trim()) return;
+    setBusy(true);
+    setError(false);
+    try {
+      const res = await fetch(`/api/ops/sessions/${token}/revise`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instruction: text.trim() }),
+      });
+      if (!res.ok) setError(true);
+      else setText("");
+    } catch {
+      setError(true);
+    }
+    setBusy(false);
+    router.refresh();
+  };
+
+  return (
+    <div className="mt-2 flex gap-2">
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && submit()}
+        placeholder='Revizyon: "başlığı ... yap", "SSS bölümünü kaldır"…'
+        className={[
+          "w-full rounded-lg border px-3 py-1.5 text-xs outline-none transition focus:border-indigo-400",
+          error ? "border-red-300" : "border-gray-200",
+        ].join(" ")}
+      />
+      <button
+        type="button"
+        onClick={submit}
+        disabled={busy || !text.trim()}
+        className="shrink-0 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-95 disabled:opacity-40"
+      >
+        {busy ? "…" : "Revize et"}
+      </button>
+    </div>
+  );
+}
+
 export function PhaseButton({
   token,
   to,
