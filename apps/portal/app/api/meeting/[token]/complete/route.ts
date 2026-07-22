@@ -4,7 +4,13 @@ import { safeParseBrief } from "@kareya/schemas";
 
 import { isDbConfigured } from "@/lib/db";
 import { enqueueJob } from "@/lib/jobs";
-import { advancePhase, saveBrief, setPhase } from "@/lib/meeting-repo";
+import {
+  advancePhase,
+  findOrCreateProjectForSession,
+  linkBriefToProject,
+  saveBrief,
+  setPhase,
+} from "@/lib/meeting-repo";
 
 // Completes the meeting (KAR-23): saves a finalized, versioned Brief snapshot,
 // advances the workflow phase, and notifies the agency. The customer then sees
@@ -42,20 +48,36 @@ export async function POST(
       `[meeting/complete] 🔔 NEW BRIEF — session=${token.slice(0, 8)}… business="${brief.business.name ?? "?"}" archetype=${brief.archetype ?? "?"} version=${version}`,
     );
 
-    // Workflow trigger (KAR-45): queue the site build; the runner picks it up.
+    // Project attach (KAR-39): the approved meeting becomes/joins a PROJECT —
+    // the durable entity owning phase, site state and the publish location.
     let jobId: string | null = null;
+    let projectSlug: string | null = null;
     try {
-      jobId = await enqueueJob("build_site", { token, briefVersion: version });
+      const project = await findOrCreateProjectForSession(
+        token,
+        brief.business.name ?? "",
+      );
+      projectSlug = project.slug;
+      await linkBriefToProject(token, version, project.id);
+      console.log(`[meeting/complete] project=${project.slug} (${project.id.slice(0, 8)}…)`);
+
+      // Workflow trigger (KAR-45): queue the site build; the runner picks it up.
+      jobId = await enqueueJob("build_site", {
+        token,
+        briefVersion: version,
+        projectId: project.id,
+        slug: project.slug,
+      });
       const advanced = await advancePhase(token, "BUILDING");
       if (!advanced) console.warn("[meeting/complete] phase not advanced to BUILDING");
       console.log(`[meeting/complete] build_site queued job=${jobId}`);
     } catch (err) {
       // Completion still succeeds for the customer; the build can be re-queued
       // from the ops dashboard.
-      console.error("[meeting/complete] enqueue failed", err);
+      console.error("[meeting/complete] project/enqueue failed", err);
     }
 
-    return NextResponse.json({ ok: true, persisted: true, version, jobId });
+    return NextResponse.json({ ok: true, persisted: true, version, jobId, projectSlug });
   } catch (err) {
     console.error("[meeting/complete] failed", err);
     return NextResponse.json({ error: "complete_failed" }, { status: 500 });

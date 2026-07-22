@@ -98,6 +98,31 @@ export async function saveCurrentSite(token: string, site: unknown): Promise<voi
     update meeting_session set current_site = ${JSON.stringify(site)}::jsonb, updated_at = now()
     where token = ${token}
   `;
+  // Project owns the state (KAR-39); session mirrors during the transition.
+  await sql()`
+    update project set current_site = ${JSON.stringify(site)}::jsonb, updated_at = now()
+    where id = (select project_id from meeting_session where token = ${token})
+  `;
+}
+
+/** Publish prefix for a token: the project's sites/<slug>, else sites/<token>. */
+export async function getPublishPrefix(token: string): Promise<string> {
+  const rows = await sql()`
+    select p.slug, p.r2_prefix
+    from meeting_session s join project p on p.id = s.project_id
+    where s.token = ${token}
+  `;
+  const slug = rows[0]?.slug as string | undefined;
+  const stored = rows[0]?.r2_prefix as string | undefined;
+  return stored ?? (slug ? `sites/${slug}` : `sites/${token}`);
+}
+
+/** Record where the project is published. */
+export async function saveR2Prefix(token: string, r2Prefix: string): Promise<void> {
+  await sql()`
+    update project set r2_prefix = ${r2Prefix}, updated_at = now()
+    where id = (select project_id from meeting_session where token = ${token})
+  `;
 }
 
 /** Machine-validated phase transition (mirrors the portal's advancePhase). */
@@ -108,6 +133,11 @@ export async function advancePhase(token: string, to: Phase): Promise<boolean> {
   await sql()`
     update meeting_session set phase = ${to}, updated_at = now()
     where token = ${token}
+  `;
+  // Project owns the phase (KAR-39); session mirrors during the transition.
+  await sql()`
+    update project set phase = ${to}, updated_at = now()
+    where id = (select project_id from meeting_session where token = ${token})
   `;
   return true;
 }
