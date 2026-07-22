@@ -26,6 +26,8 @@ const CONTENT_TYPES: Record<string, string> = {
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml",
+  ".woff2": "font/woff2",
+  ".woff": "font/woff",
 };
 
 function walk(dir: string): string[] {

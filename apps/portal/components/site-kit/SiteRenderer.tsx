@@ -1,26 +1,57 @@
+import "@fontsource-variable/inter";
+import "@fontsource-variable/sora";
+
 import type { CSSProperties } from "react";
 
 import type { Site } from "@kareya/schemas";
 
-import { renderSection } from "./sections";
+import { displayFont, renderSection, type SectionCtx } from "./sections";
 
-// Deterministic renderer (KAR-32): Site JSON → page. Same JSON → same output.
-// The brand color flows down via the `--brand` CSS var; sections read it.
+// Deterministic renderer (KAR-32; premium pass KAR-52): Site JSON → page.
+// Same JSON → same output. Mirrors the Astro generator's markup.
+
+const NAV_ITEMS: { id: string; label: string; types: string[] }[] = [
+  { id: "hizmetler", label: "Hizmetler", types: ["services"] },
+  { id: "hakkimizda", label: "Hakkımızda", types: ["about"] },
+  { id: "sss", label: "SSS", types: ["faq"] },
+];
+
 export function SiteRenderer({ site }: { site: Site }) {
   const page = site.pages[0];
+  const sectionTypes = new Set((page?.sections ?? []).map((s) => s.type));
+  const ctx: SectionCtx = { hasServices: sectionTypes.has("services") };
+  const nav = NAV_ITEMS.filter((n) => n.types.some((t) => sectionTypes.has(t as never)));
+
   return (
     <div
-      style={{ "--brand": site.brand.primary } as CSSProperties}
-      className="min-h-screen bg-white text-gray-900"
+      style={
+        {
+          "--brand": site.brand.primary,
+          fontFamily: '"Inter Variable", ui-sans-serif, system-ui, sans-serif',
+          scrollBehavior: "smooth",
+        } as CSSProperties
+      }
+      className="min-h-screen bg-white text-gray-700 antialiased"
     >
-      <header className="sticky top-0 z-10 border-b border-black/5 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
-          <span className="font-semibold" style={{ color: "var(--brand)" }}>
+      <header className="sticky top-0 z-10 border-b border-gray-900/5 bg-white/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          <span className="text-lg font-bold tracking-tight text-gray-900" style={displayFont}>
             {site.meta.businessName || "Site"}
           </span>
+          <nav className="hidden items-center gap-7 sm:flex">
+            {nav.map((n) => (
+              <a
+                key={n.id}
+                href={`#${n.id}`}
+                className="text-sm font-medium text-gray-600 transition hover:text-gray-900"
+              >
+                {n.label}
+              </a>
+            ))}
+          </nav>
           <a
             href="#iletisim"
-            className="rounded-lg px-3.5 py-1.5 text-sm font-medium text-white"
+            className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
             style={{ backgroundColor: "var(--brand)" }}
           >
             İletişim
@@ -28,10 +59,19 @@ export function SiteRenderer({ site }: { site: Site }) {
         </div>
       </header>
 
-      <main>{page?.sections.map((section, i) => renderSection(section, i))}</main>
+      <main>{page?.sections.map((section, i) => renderSection(section, i, ctx))}</main>
 
-      <footer className="border-t border-black/5 py-8 text-center text-sm text-gray-400">
-        © {site.meta.businessName || "İşletme"} · kareya ile hazırlandı
+      <footer className="border-t border-gray-900/5 px-6 py-10">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 text-sm text-gray-400 sm:flex-row">
+          <span className="font-medium text-gray-500">{site.meta.businessName || "İşletme"}</span>
+          <span>
+            © {site.meta.businessName || "İşletme"} ·{" "}
+            <span className="font-medium" style={{ color: "var(--brand)" }}>
+              kareya
+            </span>{" "}
+            ile hazırlandı
+          </span>
+        </div>
       </footer>
 
       {site.whatsapp.enabled && (
