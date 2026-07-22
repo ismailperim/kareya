@@ -125,6 +125,12 @@ export function useMeetingSession(token: string): UseMeetingSession {
       }
       const auth = (await res.json()) as MeetingAuth;
       const summary = buildCollectedSummary(briefRef.current);
+      // Resume-aware opening (KAR-56): a half-finished meeting is continued,
+      // not restarted — the greeting reflects that.
+      const businessName = briefRef.current.business.name;
+      const greeting = summary
+        ? `Tekrar hoş geldiniz! ${businessName ? businessName + " için başladığımız" : "Başladığımız"} görüşmeye kaldığımız yerden devam edelim. Notlarım duruyor — hazırsanız sürdürelim.`
+        : "Merhaba, ben Kareya'nın proje danışmanıyım. Size gerçekten yakışan bir web sitesi çıkarabilmemiz için biraz sohbet edip işinizi tanımak istiyorum. Öncelikle, ne iş yaptığınızı biraz anlatır mısınız?";
       const session = await createMeetingSession(
         auth,
         {
@@ -136,7 +142,12 @@ export function useMeetingSession(token: string): UseMeetingSession {
           },
           onToolCall: handleToolCall,
         },
-        { dynamicVariables: { collected_summary: summary || "Henüz bilgi toplanmadı." } },
+        {
+          dynamicVariables: {
+            collected_summary: summary || "Henüz bilgi toplanmadı.",
+            greeting,
+          },
+        },
       );
       sessionRef.current = session;
       await session.start();
