@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { isDbConfigured } from "@/lib/db";
 import { getProjectForToken } from "@/lib/meeting-repo";
+import { fetchManifest } from "@/lib/sources";
 
 // Room status (KAR-57): the meeting room reads its project's phase to switch
 // between brief-collection mode and "your site is ready" mode.
@@ -18,10 +19,14 @@ export async function GET(
     const project = await getProjectForToken(token);
     const phase = project?.phase ?? null;
     const siteReady = !!project?.r2_prefix;
+    // "Custom-coded" reassurance (KAR-64): only true when the Design Pass
+    // actually wrote component code — a kit fallback must not claim it.
+    const manifest = siteReady ? await fetchManifest(project?.r2_prefix ?? null) : null;
     return NextResponse.json({
       phase,
       siteReady,
       building: phase === "BUILDING",
+      customCoded: manifest?.designPass === true,
       projectName: project?.name ?? null,
       previewUrl: `/s/${token}`,
     });

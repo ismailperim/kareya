@@ -24,6 +24,8 @@ export type RoomStatus = {
   phase: string | null;
   siteReady: boolean;
   building: boolean;
+  /** Design Pass wrote custom component code for this site (KAR-64). */
+  customCoded: boolean;
 };
 
 export type UseMeetingSession = {
@@ -50,7 +52,12 @@ export function useMeetingSession(token: string): UseMeetingSession {
   const [brief, setBrief] = useState<Brief>(() => createEmptyBrief());
   const [error, setError] = useState<string | null>(null);
   const [voiceConfigured, setVoiceConfigured] = useState(true);
-  const [room, setRoom] = useState<RoomStatus>({ phase: null, siteReady: false, building: false });
+  const [room, setRoom] = useState<RoomStatus>({
+    phase: null,
+    siteReady: false,
+    building: false,
+    customCoded: false,
+  });
   const roomRef = useRef<RoomStatus>(room);
   const sessionRef = useRef<MeetingSession | null>(null);
   // Source of truth for tool-call reduction — kept current so check_completeness
@@ -98,6 +105,7 @@ export function useMeetingSession(token: string): UseMeetingSession {
         phase: data.phase ?? null,
         siteReady: !!data.siteReady,
         building: !!data.building,
+        customCoded: !!data.customCoded,
       };
       roomRef.current = next;
       setRoom(next);

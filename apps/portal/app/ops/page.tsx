@@ -1,6 +1,7 @@
 import { isDbConfigured } from "@/lib/db";
 import { listJobs, type JobRow } from "@/lib/jobs";
 import { listSessions, type SessionSummary } from "@/lib/meeting-repo";
+import { fetchManifest, manifestUrl, type SourceManifest } from "@/lib/sources";
 
 import { PhaseButton, RefreshControl, RetryJobButton, RevisionForm } from "./OpsActions";
 
@@ -37,7 +38,36 @@ function Badge({ value, styles }: { value: string; styles: Record<string, string
   );
 }
 
-function SessionRow({ s }: { s: SessionSummary }) {
+/** "Custom-coded" (Claude wrote component code) vs "kit" (deterministic fallback). */
+function DesignBadge({ manifest }: { manifest: SourceManifest | null | undefined }) {
+  if (!manifest) return null;
+  return manifest.designPass ? (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700"
+      title={`Claude ${manifest.rewritten.length} component yazdı: ${manifest.rewritten
+        .map((f) => f.replace("src/components/", "").replace(".astro", ""))
+        .join(", ")}`}
+    >
+      ✦ özel kod ({manifest.rewritten.length})
+    </span>
+  ) : (
+    <span
+      className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500"
+      title="Deterministik kit ile derlendi (design pass uygulanmadı)"
+    >
+      kit
+    </span>
+  );
+}
+
+function SessionRow({
+  s,
+  manifest,
+}: {
+  s: SessionSummary;
+  manifest: SourceManifest | null | undefined;
+}) {
+  const sourcesHref = manifestUrl(s.r2_prefix);
   return (
     <tr className="border-t border-gray-100">
       <td className="px-3 py-2 font-mono text-xs text-gray-500">{s.token.slice(0, 14)}…</td>
@@ -45,7 +75,10 @@ function SessionRow({ s }: { s: SessionSummary }) {
         {s.business_name || <span className="text-gray-300">—</span>}
       </td>
       <td className="px-3 py-2">
-        <Badge value={s.phase} styles={PHASE_STYLES} />
+        <div className="flex flex-col items-start gap-1">
+          <Badge value={s.phase} styles={PHASE_STYLES} />
+          <DesignBadge manifest={manifest} />
+        </div>
       </td>
       <td className="px-3 py-2 text-xs text-gray-400">
         {new Date(s.updated_at).toLocaleString("tr-TR")}
@@ -66,6 +99,16 @@ function SessionRow({ s }: { s: SessionSummary }) {
           >
             Oda
           </a>
+          {sourcesHref && (
+            <a
+              href={sourcesHref}
+              target="_blank"
+              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              title="Projenin kaynak kodu (sources/ + manifest)"
+            >
+              Kaynak ↗
+            </a>
+          )}
           {s.phase === "PREVIEW_READY" && (
             <PhaseButton token={s.token} to="LIVE" label="LIVE'a geçir ✓" />
           )}
@@ -117,6 +160,16 @@ export default async function OpsPage() {
   }
   const [sessions, jobs] = await Promise.all([listSessions(), listJobs()]);
 
+  // Manifest tells "custom-coded vs kit" + links to sources; only meaningful
+  // once a build exists. Best-effort, fetched in parallel (İsmail-only page).
+  const built = sessions.filter((s) =>
+    ["PREVIEW_READY", "LIVE", "CARE"].includes(s.phase),
+  );
+  const manifestEntries = await Promise.all(
+    built.map(async (s) => [s.token, await fetchManifest(s.r2_prefix)] as const),
+  );
+  const manifests = new Map(manifestEntries);
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-indigo-50/70 via-white to-white">
       <header className="sticky top-0 z-10 border-b border-black/5 bg-white/80 backdrop-blur">
@@ -146,7 +199,7 @@ export default async function OpsPage() {
               </thead>
               <tbody>
                 {sessions.map((s) => (
-                  <SessionRow key={s.token} s={s} />
+                  <SessionRow key={s.token} s={s} manifest={manifests.get(s.token)} />
                 ))}
               </tbody>
             </table>
