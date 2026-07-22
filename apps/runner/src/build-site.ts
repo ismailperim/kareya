@@ -7,6 +7,7 @@ import { safeParseBrief } from "@kareya/schemas";
 import {
   briefToSite,
   generateAstroProject,
+  pickImageProvider,
   pickLlm,
   polishSite,
   relativizeAssetPaths,
@@ -75,7 +76,57 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
   }
 
-  // 2c) Generate the Astro project from the (possibly polished) site.
+  // 2c) Images (KAR-53): source hero/about photos when the customer has none.
+  // Provider-agnostic (Pexels free stock first; Gemini image once billed).
+  const imageFiles: Record<string, Buffer> = {};
+  const imgChoice = pickImageProvider({
+    PEXELS_API_KEY: env("PEXELS_API_KEY"),
+    GEMINI_API_KEY: env("GEMINI_API_KEY"),
+    GEMINI_IMAGE_MODEL: env("GEMINI_IMAGE_MODEL"),
+    GEMINI_IMAGE_ENABLED: env("GEMINI_IMAGE_ENABLED"),
+  });
+  if (imgChoice && brief.contentSources.hasPhotos !== true) {
+    try {
+      // English search queries give far better stock results; ask the text LLM,
+      // fall back to sector-generic queries.
+      let queries = {
+        hero: "modern professional business technology",
+        about: "professional team office working",
+      };
+      if (llmChoice) {
+        try {
+          const raw = await llmChoice.llm(
+            `Bir web sitesi için stok fotoğraf arama sorguları üret. İşletme: "${brief.business.name ?? ""}" — sektör: "${brief.business.sector ?? ""}". Notlar: ${brief.notes.slice(0, 300)}. SADECE şu JSON'u döndür (İngilizce, 3-5 kelimelik sorgular): {"hero":"...","about":"..."}`,
+          );
+          const parsed = JSON.parse(raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, ""));
+          if (parsed.hero) queries.hero = String(parsed.hero);
+          if (parsed.about) queries.about = String(parsed.about);
+        } catch {
+          /* keep fallback queries */
+        }
+      }
+      const hero = await imgChoice.getImage(queries.hero, "landscape");
+      imageFiles[`public/images/hero.${hero.ext}`] = hero.buffer;
+      const heroSec = site.pages[0]?.sections.find((x) => x.type === "hero");
+      if (heroSec && heroSec.type === "hero") heroSec.imageUrl = `images/hero.${hero.ext}`;
+
+      const aboutSec = site.pages[0]?.sections.find((x) => x.type === "about");
+      if (aboutSec && aboutSec.type === "about") {
+        const about = await imgChoice.getImage(queries.about, "landscape");
+        imageFiles[`public/images/about.${about.ext}`] = about.buffer;
+        aboutSec.imageUrl = `images/about.${about.ext}`;
+      }
+      await log(
+        `images sourced (${imgChoice.name}: hero="${queries.hero}"${Object.keys(imageFiles).length > 1 ? `, about="${queries.about}"` : ""})`,
+      );
+    } catch (err) {
+      await log(`image step skipped (${err instanceof Error ? err.message : err})`);
+    }
+  } else if (!imgChoice) {
+    await log("no image provider — set PEXELS_API_KEY (free) for photos");
+  }
+
+  // 2d) Generate the Astro project from the (possibly polished) site.
   const files = generateAstroProject(site);
   await log(`astro project generated → ${Object.keys(files).length} files`);
 
@@ -86,6 +137,11 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
       const path = join(work, rel);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, content);
+    }
+    for (const [rel, buffer] of Object.entries(imageFiles)) {
+      const path = join(work, rel);
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, buffer);
     }
 
     // 4) Install + static build.
