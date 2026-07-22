@@ -29,21 +29,44 @@ function sectionHeading(kicker: string, title: string): string {
 
 function renderSection(s: SiteSection, ctx: Ctx): string {
   switch (s.type) {
-    case "hero":
-      return `
-    <section class="relative overflow-hidden">
-      <div class="absolute inset-0" style="${tint(7)}"></div>
-      <div class="absolute inset-0 opacity-40" style="background-image: radial-gradient(color-mix(in srgb, var(--brand) 22%, white) 1px, transparent 1px); background-size: 22px 22px;"></div>
-      <div class="absolute -right-32 -top-32 h-96 w-96 rounded-full blur-3xl" style="background: color-mix(in srgb, var(--brand) 16%, white);"></div>
-      <div class="relative mx-auto max-w-4xl px-6 py-28 text-center sm:py-36">
-        <h1 class="text-4xl font-bold leading-tight tracking-tight text-gray-900 sm:text-6xl">${esc(s.headline)}</h1>
-        ${s.subheadline ? `<p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 sm:text-xl">${esc(s.subheadline)}</p>` : ""}
-        <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+    case "hero": {
+      const ctas = `
+        <div class="mt-10 flex flex-wrap items-center ${s.imageUrl ? "" : "justify-center "}gap-3">
           ${s.ctaLabel ? `<a href="${esc(s.ctaHref)}" class="rounded-xl px-8 py-4 font-semibold text-white shadow-lg transition hover:opacity-90 hover:shadow-xl" style="background-color: var(--brand); box-shadow: 0 10px 25px -5px color-mix(in srgb, var(--brand) 40%, transparent);">${esc(s.ctaLabel)}</a>` : ""}
           ${ctx.hasServices ? `<a href="#hizmetler" class="rounded-xl border border-gray-200 bg-white/80 px-8 py-4 font-semibold text-gray-700 backdrop-blur transition hover:bg-white">Hizmetlerimiz</a>` : ""}
+        </div>`;
+      const bg = `
+      <div class="absolute inset-0" style="${tint(7)}"></div>
+      <div class="absolute inset-0 opacity-40" style="background-image: radial-gradient(color-mix(in srgb, var(--brand) 22%, white) 1px, transparent 1px); background-size: 22px 22px;"></div>
+      <div class="absolute -right-32 -top-32 h-96 w-96 rounded-full blur-3xl" style="background: color-mix(in srgb, var(--brand) 16%, white);"></div>`;
+      if (s.imageUrl) {
+        // Split hero: copy left, photo right.
+        return `
+    <section class="relative overflow-hidden">
+      ${bg}
+      <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 sm:py-28 lg:grid-cols-2">
+        <div>
+          <h1 class="text-4xl font-bold leading-tight tracking-tight text-gray-900 sm:text-5xl">${esc(s.headline)}</h1>
+          ${s.subheadline ? `<p class="mt-6 max-w-xl text-lg leading-relaxed text-gray-600 sm:text-xl">${esc(s.subheadline)}</p>` : ""}
+          ${ctas}
+        </div>
+        <div class="relative">
+          <div class="absolute -inset-4 rounded-3xl opacity-60 blur-2xl" style="background: color-mix(in srgb, var(--brand) 18%, white);"></div>
+          <img src="${esc(s.imageUrl)}" alt="" class="relative aspect-[4/3] w-full rounded-3xl object-cover shadow-2xl ring-1 ring-gray-900/10" loading="eager" />
         </div>
       </div>
     </section>`;
+      }
+      return `
+    <section class="relative overflow-hidden">
+      ${bg}
+      <div class="relative mx-auto max-w-4xl px-6 py-28 text-center sm:py-36">
+        <h1 class="text-4xl font-bold leading-tight tracking-tight text-gray-900 sm:text-6xl">${esc(s.headline)}</h1>
+        ${s.subheadline ? `<p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600 sm:text-xl">${esc(s.subheadline)}</p>` : ""}
+        ${ctas}
+      </div>
+    </section>`;
+    }
     case "services":
       return `
     <section id="hizmetler" class="mx-auto max-w-6xl px-6 py-20 sm:py-24">
@@ -60,7 +83,20 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
           .join("\n        ")}
       </div>
     </section>`;
-    case "about":
+    case "about": {
+      if (s.imageUrl) {
+        return `
+    <section id="hakkimizda" class="px-6 py-20 sm:py-24" style="${tint(5)}">
+      <div class="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+        <img src="${esc(s.imageUrl)}" alt="" class="aspect-[4/3] w-full rounded-3xl object-cover shadow-xl ring-1 ring-gray-900/10" loading="lazy" />
+        <div>
+          <div class="text-xs font-semibold uppercase tracking-[0.2em]" style="color: var(--brand);">Bizi tanıyın</div>
+          <h2 class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">${esc(s.title)}</h2>
+          ${s.body ? `<p class="mt-6 whitespace-pre-line text-lg leading-8 text-gray-700">${esc(s.body)}</p>` : ""}
+        </div>
+      </div>
+    </section>`;
+      }
       return `
     <section id="hakkimizda" class="px-6 py-20 sm:py-24" style="${tint(5)}">
       <div class="mx-auto max-w-3xl text-center">
@@ -68,6 +104,7 @@ function renderSection(s: SiteSection, ctx: Ctx): string {
         ${s.body ? `<p class="mt-8 whitespace-pre-line text-lg leading-8 text-gray-700">${esc(s.body)}</p>` : ""}
       </div>
     </section>`;
+    }
     case "whyUs":
       return `
     <section id="neden-biz" class="mx-auto max-w-6xl px-6 py-20 sm:py-24">
