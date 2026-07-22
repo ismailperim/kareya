@@ -131,10 +131,6 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
   const brief = parsed.data;
   await log(`brief loaded (version=${briefVersion ?? "latest"}, business=${brief.business.name ?? "?"})`);
 
-  // 2) Assemble Site JSON (structure is deterministic).
-  let site: Site = briefToSite(brief);
-  await log(`site assembled (${site.pages[0]?.sections.length ?? 0} sections)`);
-
   // Previous build state (brand/image stability across rebuilds — İsmail's
   // finding: polish re-picked a different palette and Pexels re-picked
   // different photos on every rebuild).
@@ -142,13 +138,26 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
   const prevParsed = prevRaw ? safeParseSite(prevRaw) : null;
   const prev = prevParsed?.success ? prevParsed.data : null;
 
+  // Republish mode: regenerate + publish from the CURRENT Site JSON verbatim
+  // (pipeline/kit updates). No assemble, no polish, no new images — nothing
+  // about the customer's site changes except the rendered output.
+  const republish = (job.payload as { republish?: boolean }).republish === true && !!prev;
+
+  // 2) Assemble Site JSON (structure is deterministic).
+  let site: Site = republish ? prev! : briefToSite(brief);
+  await log(
+    republish
+      ? "republish mode — regenerating from current site (no polish/image changes)"
+      : `site assembled (${site.pages[0]?.sections.length ?? 0} sections)`,
+  );
+
   // 2b) Content polish (KAR-50): LLM rewrites the copy only. Providers form a
   // fallback CHAIN — a Gemini 429 mid-build must not ship unpolished copy when
   // a Claude key is on hand (İsmail's "renkler değişti/metinler azaldı" root
   // cause was exactly this silent degradation).
-  const llmChain = contentLlmChain();
+  const llmChain = republish ? [] : contentLlmChain();
   let llmChoice: ReturnType<typeof contentLlm> = null;
-  if (!llmChain.length) {
+  if (!llmChain.length && !republish) {
     await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
   }
   for (const choice of llmChain) {

@@ -3,6 +3,8 @@ import "@fontsource-variable/sora";
 
 import type { CSSProperties } from "react";
 
+import { brandInk, onBrand } from "@kareya/site-gen";
+
 import type { Site } from "@kareya/schemas";
 
 import {
@@ -44,6 +46,8 @@ export function SiteRenderer({ site }: { site: Site }) {
       style={
         {
           "--brand": site.brand.primary,
+          "--on-brand": onBrand(site.brand.primary),
+          "--brand-ink": brandInk(site.brand.primary),
           "--ink": "#1c1d21",
           "--ink-soft": "#4b4e57",
           "--ink-mut": "#8a8d96",

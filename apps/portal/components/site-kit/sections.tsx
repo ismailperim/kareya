@@ -18,8 +18,8 @@ type Testimonials = Extract<SiteSection, { type: "testimonials" }>;
 type Faq = Extract<SiteSection, { type: "faq" }>;
 type Contact = Extract<SiteSection, { type: "contact" }>;
 
-const brand = { color: "var(--brand)" } as const;
-const brandBg = { backgroundColor: "var(--brand)" } as const;
+const brand = { color: "var(--brand-ink)" } as const; // brand-hued text stays readable on light surfaces
+const brandBg = { backgroundColor: "var(--brand)", color: "var(--on-brand)" } as const;
 const ink = { color: "var(--ink)" } as const;
 const inkSoft = { color: "var(--ink-soft)" } as const;
 const tint = (pct: number) => ({
@@ -86,7 +86,7 @@ export function monogramInitials(name: string): string {
 export function Monogram({ name }: { name: string }) {
   return (
     <span
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-semibold"
       style={brandBg}
     >
       {monogramInitials(name)}
@@ -137,7 +137,7 @@ export function HeroSection({ s, ctx }: { s: Hero; ctx: SectionCtx }) {
       {s.ctaLabel && (
         <a
           href={s.ctaHref}
-          className="rounded-xl px-8 py-4 font-semibold text-white shadow-lg transition hover:opacity-90 hover:shadow-xl"
+          className="rounded-xl px-8 py-4 font-semibold shadow-lg transition hover:opacity-90 hover:shadow-xl"
           style={{
             ...brandBg,
             boxShadow: "0 10px 25px -5px color-mix(in srgb, var(--brand) 40%, transparent)",
@@ -282,8 +282,8 @@ export function CtaBannerSection({ s }: { s: CtaBanner }) {
           }}
         />
         <h2
-          className="relative text-2xl font-semibold tracking-tight text-white sm:text-3xl"
-          style={displayFont}
+          className="relative text-2xl font-semibold tracking-tight sm:text-3xl"
+          style={{ ...displayFont, color: "var(--on-brand)" }}
         >
           {s.headline}
         </h2>
@@ -415,7 +415,7 @@ export function TestimonialsSection({ s }: { s: Testimonials }) {
               {t.author && (
                 <figcaption className="mt-5 flex items-center gap-3">
                   <span
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold"
                     style={brandBg}
                   >
                     {t.author.trim().charAt(0).toUpperCase()}
@@ -521,7 +521,7 @@ export function ContactSection({ s }: { s: Contact }) {
             <textarea placeholder="Mesajınız" rows={4} className={inputCls} style={ringStyle} />
             <button
               type="button"
-              className="w-full rounded-xl px-5 py-3.5 font-semibold text-white transition hover:opacity-90"
+              className="w-full rounded-xl px-5 py-3.5 font-semibold transition hover:opacity-90"
               style={brandBg}
             >
               Gönder
