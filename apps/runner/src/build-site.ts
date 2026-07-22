@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 import { safeParseBrief, safeParseSite, type Site } from "@kareya/schemas";
 import {
+  artDirection,
   briefToSite,
   fetchFromR2,
   generateAstroProject,
@@ -180,6 +181,29 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
   if (prev && !TONE_DEFAULT_PRIMARIES.has(prev.brand.primary.toUpperCase())) {
     site = { ...site, brand: prev.brand };
     await log(`brand pinned from previous build (${prev.brand.primary})`);
+  }
+
+  // Art Direction (KAR-60): pick the project's layout identity once, then pin
+  // it (a non-empty rationale marks "chosen"). Claude first — this is design/
+  // code work; revisions can change the design later.
+  if (!republish) {
+    if (prev?.design.rationale) {
+      site = { ...site, design: prev.design };
+      await log(`design pinned from previous build (hero=${prev.design.heroVariant})`);
+    } else {
+      const adChain = [...contentLlmChain()].sort((a) => (a.name === "anthropic" ? -1 : 1));
+      for (const choice of adChain) {
+        const ad = await artDirection(site, brief, choice.llm);
+        if (ad.applied) {
+          site = { ...site, design: ad.design };
+          await log(
+            `art direction (${choice.name}): hero=${ad.design.heroVariant} services=${ad.design.servicesVariant} about=${ad.design.aboutVariant} density=${ad.design.density} radius=${ad.design.radius}${ad.design.customCss ? ` +css(${ad.design.customCss.length}ch)` : ""} — ${ad.design.rationale}`,
+          );
+          break;
+        }
+        await log(`art direction failed (${choice.name}: ${String(ad.error).slice(0, 120)})`);
+      }
+    }
   }
 
   // 2c) Images (KAR-53). Pin first: photos already chosen in a previous build
