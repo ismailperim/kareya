@@ -9,6 +9,11 @@ jobs:
   gitleaks:
     name: secret scan (gitleaks)
     runs-on: ubuntu-latest
+    # The action lists PR commits via the API on pull_request events; the
+    # default GITHUB_TOKEN lacks that permission → 403 without this block.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
