@@ -38,7 +38,11 @@ export function geminiLlm(apiKey: string, model = "gemini-flash-latest"): LlmFn 
 }
 
 /** Anthropic Claude via the Messages API. */
-export function anthropicLlm(apiKey: string, model = "claude-haiku-4-5-20251001"): LlmFn {
+export function anthropicLlm(
+  apiKey: string,
+  model = "claude-haiku-4-5-20251001",
+  maxTokens = 4096,
+): LlmFn {
   return async (prompt: string) => {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -49,7 +53,7 @@ export function anthropicLlm(apiKey: string, model = "claude-haiku-4-5-20251001"
       },
       body: JSON.stringify({
         model,
-        max_tokens: 4096,
+        max_tokens: maxTokens,
         messages: [{ role: "user", content: prompt }],
       }),
     });

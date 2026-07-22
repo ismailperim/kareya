@@ -58,6 +58,37 @@ export async function fetchFromR2(
   return Buffer.from(await res.arrayBuffer());
 }
 
+/** Upload an in-memory file map to `r2://bucket/prefix/` (source trees, manifests). */
+export async function uploadFilesToR2(
+  files: Record<string, string | Buffer>,
+  prefix: string,
+  creds: R2Credentials,
+): Promise<string[]> {
+  const aws = new AwsClient({
+    accessKeyId: creds.accessKeyId,
+    secretAccessKey: creds.secretAccessKey,
+    service: "s3",
+    region: "auto",
+  });
+  const endpoint = `https://${creds.accountId}.r2.cloudflarestorage.com`;
+  const cleanPrefix = prefix.replace(/^\/+|\/+$/g, "");
+  const keys: string[] = [];
+  for (const [rel, content] of Object.entries(files)) {
+    const key = cleanPrefix ? `${cleanPrefix}/${rel}` : rel;
+    const ct = CONTENT_TYPES[extname(rel).toLowerCase()] ?? "text/plain; charset=utf-8";
+    const res = await aws.fetch(`${endpoint}/${creds.bucket}/${key}`, {
+      method: "PUT",
+      body: typeof content === "string" ? content : new Uint8Array(content),
+      headers: { "content-type": ct },
+    });
+    if (!res.ok) {
+      throw new Error(`R2 PUT ${key} failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
+    }
+    keys.push(key);
+  }
+  return keys;
+}
+
 /** Upload every file under `localDir` to `r2://bucket/prefix/`. Returns keys. */
 export async function uploadDirToR2(
   localDir: string,

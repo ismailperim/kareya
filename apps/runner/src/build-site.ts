@@ -1,20 +1,25 @@
 import { execSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { safeParseBrief, safeParseSite, type Site } from "@kareya/schemas";
 import {
+  anthropicLlm,
   artDirection,
   briefToSite,
+  contentProbes,
+  designPass,
   fetchFromR2,
   generateAstroProject,
+  missingProbes,
   pickImageProvider,
   pickLlm,
   pickLlms,
   polishSite,
   relativizeAssetPaths,
   uploadDirToR2,
+  uploadFilesToR2,
 } from "@kareya/site-gen";
 
 import {
@@ -78,6 +83,69 @@ export function contentLlmChain() {
   });
 }
 
+/** Write a { rel → content } map into the worktree. */
+function writeTree(work: string, files: Record<string, string | Buffer>): void {
+  for (const [rel, content] of Object.entries(files)) {
+    const path = join(work, rel);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, content);
+  }
+}
+
+/** astro build that reports failure instead of throwing (design-pass gate). */
+function tryBuild(work: string): { ok: boolean; output: string } {
+  try {
+    rmSync(join(work, "dist"), { recursive: true, force: true });
+    const out = run("npm run build", work);
+    return { ok: true, output: out };
+  } catch (err) {
+    const e = err as { stdout?: string; stderr?: string; message?: string };
+    return {
+      ok: false,
+      output: [e.stderr, e.stdout, e.message].filter(Boolean).join("\n"),
+    };
+  }
+}
+
+/** Concatenated HTML of every built page (content gate input). */
+function readBuiltHtml(work: string): string {
+  const dist = join(work, "dist");
+  let html = "";
+  for (const entry of readdirSync(dist)) {
+    if (entry.endsWith(".html")) html += readFileSync(join(dist, entry), "utf8");
+  }
+  return html;
+}
+
+/** Source prefix for a publish prefix: sites/<slug> → sources/<slug>. */
+export function sourcePrefixFor(publishPrefix: string): string {
+  return publishPrefix.replace(/^sites\//, "sources/");
+}
+
+/**
+ * Restore pinned Design Pass component files (KAR-62) from sources/ so
+ * rebuilds and content revisions keep the custom-written layout.
+ */
+export async function restoreDesignOverrides(
+  publishPrefix: string,
+): Promise<Record<string, string> | null> {
+  const srcPrefix = sourcePrefixFor(publishPrefix);
+  const manifestBuf = await fetchFromR2(`${srcPrefix}/kareya-manifest.json`, r2Creds());
+  if (!manifestBuf) return null;
+  try {
+    const manifest = JSON.parse(manifestBuf.toString("utf8")) as { rewritten?: string[] };
+    if (!manifest.rewritten?.length) return null;
+    const files: Record<string, string> = {};
+    for (const rel of manifest.rewritten) {
+      const buf = await fetchFromR2(`${srcPrefix}/${rel}`, r2Creds());
+      if (buf) files[rel] = buf.toString("utf8");
+    }
+    return Object.keys(files).length ? files : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Shared publish pipeline (build_site + revise_site): materialize the project
  * into an isolated temp worktree, npm install + astro build, relativize asset
@@ -92,16 +160,8 @@ export async function materializeBuildPublish(
   const log = (line: string) => appendJobLog(jobId, line);
   const work = mkdtempSync(join(tmpdir(), `kareya-build-${jobId.slice(0, 8)}-`));
   try {
-    for (const [rel, content] of Object.entries(files)) {
-      const path = join(work, rel);
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, content);
-    }
-    for (const [rel, buffer] of Object.entries(imageFiles)) {
-      const path = join(work, rel);
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, buffer);
-    }
+    writeTree(work, files);
+    writeTree(work, imageFiles);
 
     await log("npm install…");
     run("npm install --no-audit --no-fund --silent", work);
@@ -286,12 +346,129 @@ export async function buildSite(job: ClaimedJob): Promise<BuildSiteResult> {
     await log("no image provider — set PEXELS_API_KEY (free) for photos");
   }
 
-  // 2d) Generate + build + publish (project slug path when available — KAR-39).
-  const files = generateAstroProject(site);
-  await log(`astro project generated → ${Object.keys(files).length} files`);
+  // 2d) Generate the deterministic kit project (the fallback that always builds).
+  const kitFiles = generateAstroProject(site);
+  await log(`astro project generated → ${Object.keys(kitFiles).length} files`);
   const slug = (job.payload as { slug?: string }).slug;
   const prefix = slug ? `sites/${slug}` : await getPublishPrefix(token);
-  const { r2Prefix, uploaded } = await materializeBuildPublish(job.id, prefix, files, imageFiles);
+
+  // 2e) Design Pass (KAR-62): Claude rewrites component code for THIS business.
+  // Pinned across rebuilds via sources/<slug>/kareya-manifest.json; fresh runs
+  // are build-gated + content-gated and fall back to the kit on any failure.
+  let overrides: Record<string, string> | null = await restoreDesignOverrides(prefix);
+  let overridesPinned = false;
+  if (overrides) {
+    overridesPinned = true;
+    await log(`design pass pinned from sources/ (${Object.keys(overrides).length} components)`);
+  }
+
+  const anthropicKey = env("ANTHROPIC_API_KEY") ?? env("CLAUDE_API_KEY");
+  const designPassEnabled =
+    env("DESIGN_PASS") !== "0" && !!anthropicKey && !overrides && !republish;
+  const designModel = env("DESIGN_PASS_MODEL") ?? "claude-sonnet-4-5";
+
+  // One worktree for the whole build: install once, build up to 3 times
+  // (design attempt, design retry, kit fallback).
+  const work = mkdtempSync(join(tmpdir(), `kareya-build-${job.id.slice(0, 8)}-`));
+  let uploaded: number;
+  let designApplied = !!overrides;
+  let designRewritten: string[] = overrides ? Object.keys(overrides) : [];
+  try {
+    writeTree(work, kitFiles);
+    writeTree(work, imageFiles);
+    await log("npm install…");
+    run("npm install --no-audit --no-fund --silent", work);
+
+    if (designPassEnabled) {
+      const llm = anthropicLlm(anthropicKey!, designModel, 16000);
+      const probes = contentProbes(site);
+      let feedback: string | undefined;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        const dp = await designPass(site, brief, kitFiles, llm, feedback);
+        if (dp.error) {
+          await log(`design pass attempt ${attempt} rejected (${dp.error})`);
+          feedback = dp.error;
+          continue;
+        }
+        writeTree(work, dp.files);
+        const built = tryBuild(work);
+        if (!built.ok) {
+          await log(`design pass attempt ${attempt}: astro build FAILED — retrying with error feedback`);
+          feedback = `astro build hatası:\n${built.output.slice(-1200)}`;
+          writeTree(work, kitFiles); // reset before next attempt
+          continue;
+        }
+        const missing = missingProbes(readBuiltHtml(work), probes);
+        if (missing.length) {
+          await log(`design pass attempt ${attempt}: content gate FAILED (missing: ${missing.join(" | ").slice(0, 160)})`);
+          feedback = `Şu içerikler üretilen sitede KAYBOLDU (props'tan render etmeyi unutma): ${missing.join(", ")}`;
+          writeTree(work, kitFiles);
+          continue;
+        }
+        overrides = dp.files;
+        designApplied = true;
+        designRewritten = dp.rewritten;
+        await log(
+          `design pass OK (${designModel}, attempt ${attempt}): rewrote ${dp.rewritten.map((f) => f.replace("src/components/", "").replace(".astro", "")).join(", ")} (${dp.outputChars}ch)`,
+        );
+        break;
+      }
+      if (!designApplied) await log("design pass fell back to the kit (all attempts failed)");
+    }
+
+    // Final build: pinned overrides need a build here; a fresh design pass
+    // already left a passing build in dist/; otherwise build the kit.
+    if (overridesPinned) writeTree(work, overrides!);
+    if (overridesPinned || !designApplied) {
+      const built = tryBuild(work);
+      if (!built.ok && overridesPinned) {
+        // Pinned design no longer builds (e.g. schema drift) — kit fallback.
+        await log("pinned design pass no longer builds — falling back to kit");
+        writeTree(work, kitFiles);
+        overrides = null;
+        designApplied = false;
+        designRewritten = [];
+        run("npm run build", work);
+      } else if (!built.ok) {
+        throw new Error(`astro build failed: ${built.output.slice(-800)}`);
+      }
+    }
+
+    const rewrittenPages = relativizeAssetPaths(join(work, "dist"));
+    await log(`static build complete (assets relativized in ${rewrittenPages} page)`);
+    const keys = await uploadDirToR2(join(work, "dist"), prefix, r2Creds(), () => {});
+    await log(`published ${keys.length} files → r2://${r2Creds().bucket}/${prefix}`);
+    uploaded = keys.length;
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+  const r2Prefix = prefix;
+
+  // 2f) Publish the SOURCE tree (KAR-63 decision: sources/<slug>/ — the
+  // customer's real code) + manifest recording the pinned design files.
+  try {
+    const finalFiles = { ...kitFiles, ...(overrides ?? {}) };
+    const srcPrefix = sourcePrefixFor(prefix);
+    await uploadFilesToR2({ ...finalFiles, ...imageFiles }, srcPrefix, r2Creds());
+    await uploadFilesToR2(
+      {
+        "kareya-manifest.json": JSON.stringify(
+          {
+            designPass: designApplied,
+            rewritten: designRewritten,
+            generatedAt: new Date().toISOString(),
+          },
+          null,
+          2,
+        ),
+      },
+      srcPrefix,
+      r2Creds(),
+    );
+    await log(`source published → r2://${r2Creds().bucket}/${srcPrefix} (designPass=${designApplied})`);
+  } catch (err) {
+    await log(`source publish skipped (${err instanceof Error ? err.message : err})`);
+  }
 
   // 3) Persist the generated state (revisions patch this) + advance the phase.
   await saveCurrentSite(token, site);
