@@ -7,8 +7,12 @@ export type LlmFn = (prompt: string) => Promise<string>;
 
 export type LlmChoice = { name: string; llm: LlmFn };
 
-/** Google Gemini via REST (free-tier friendly — the PoC default). */
-export function geminiLlm(apiKey: string, model = "gemini-2.5-flash"): LlmFn {
+/**
+ * Google Gemini via REST (free-tier friendly — the PoC default). The
+ * `-latest` alias tracks the newest flash model available to the account
+ * (fixed model names age out for new users).
+ */
+export function geminiLlm(apiKey: string, model = "gemini-flash-latest"): LlmFn {
   return async (prompt: string) => {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
