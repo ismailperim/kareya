@@ -18,6 +18,23 @@ FAQ"), and the customer owns the source.
 > Turkish customer-facing output for the Turkish SMB market. Details in
 > [`CONTRIBUTING.md`](CONTRIBUTING.md#language-policy-please-read-first).
 
+## A look around
+
+A site generated from a single voice meeting — the headline, the stats, even
+the company-name change the customer requested later by just sending a
+message:
+
+![A generated site](docs/assets/generated-site.png)
+
+| The meeting room (consent → voice interview) | The invite door |
+|---|---|
+| ![Meeting room](docs/assets/meeting-room.png) | ![Invite page](docs/assets/invite.png) |
+
+The operator cockpit — every project's phase, the "✦ özel kod" badge showing
+Claude wrote custom components for that site, one-click source access:
+
+![Ops dashboard](docs/assets/ops-dashboard.png)
+
 ## Why it's not a website builder
 
 Website builders (Wix, Squarespace) hand you an editor and make *you* do the
