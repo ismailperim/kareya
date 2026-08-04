@@ -50,6 +50,11 @@ export async function PUT(
     await saveDraft(token, parsed.data);
     return NextResponse.json({ ok: true, persisted: true });
   } catch (err) {
+    // Unknown token = no session was ever minted for it (KAR-42) — a real 404,
+    // not a soft failure. Transient DB errors still degrade gracefully.
+    if (err instanceof Error && err.message === "unknown_session") {
+      return NextResponse.json({ error: "invalid_token" }, { status: 404 });
+    }
     console.error("[meeting/brief] save failed", err);
     return NextResponse.json({ ok: true, persisted: false });
   }
