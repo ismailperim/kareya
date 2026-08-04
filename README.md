@@ -20,18 +20,26 @@ FAQ"), and the customer owns the source.
 
 ## A look around
 
-A site generated from a single voice meeting — the headline, the stats, even
-the company-name change the customer requested later by just sending a
-message:
+**The meeting room.** The AI consultant interviews the customer by voice; the
+structured brief fills in live on the right as they talk — business, brand,
+contact, content sources — ending in one approval button:
+
+![The live brief panel during a voice meeting](docs/assets/live-brief-panel.png)
+
+**The result** — a real Astro site generated from that one conversation
+(including the company-name change the customer requested later by just
+sending a message):
 
 ![A generated site](docs/assets/generated-site.png)
 
-| The meeting room (consent → voice interview) | The invite door |
-|---|---|
-| ![Meeting room](docs/assets/meeting-room.png) | ![Invite page](docs/assets/invite.png) |
+**After launch, the room becomes the customer's project space.** Site status,
+one-click preview, and revisions by voice or text — note the badge: this site
+was compiled from code written specifically for this business:
 
-The operator cockpit — every project's phase, the "✦ özel kod" badge showing
-Claude wrote custom components for that site, one-click source access:
+![Site-ready mode with the revision channel](docs/assets/site-ready.png)
+
+**The operator cockpit** — every project's phase, the "✦ özel kod" badge
+showing Claude wrote custom components for that site, one-click source access:
 
 ![Ops dashboard](docs/assets/ops-dashboard.png)
 
