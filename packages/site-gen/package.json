@@ -5,8 +5,14 @@
   "type": "module",
   "main": "index.ts",
   "types": "index.ts",
+  "scripts": {
+    "test": "vitest run llm.test.ts"
+  },
   "dependencies": {
     "@kareya/schemas": "*",
     "aws4fetch": "^1.0.20"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.7"
   }
 }

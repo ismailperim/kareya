@@ -137,7 +137,8 @@ npm run start -w @kareya/runner -- --once  # process one job and exit
 ```
 
 Keys are read from `apps/portal/.env.local` (the runner falls back to it):
-`DATABASE_URL` (Neon), `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `PEXELS_API_KEY`,
+`DATABASE_URL` (Neon), `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, optional OpenAI-compatible
+content settings (`OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_API_KEY`), `PEXELS_API_KEY`,
 `ELEVENLABS_API_KEY`, and the `R2_*` credentials. A full, verified quickstart +
 `.env.example` reference lands with the open-source release (KAR-48).
 

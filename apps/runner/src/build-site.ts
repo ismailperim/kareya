@@ -72,6 +72,9 @@ export function contentLlm() {
     GEMINI_API_KEY: env("GEMINI_API_KEY"),
     ANTHROPIC_API_KEY: env("ANTHROPIC_API_KEY") ?? env("CLAUDE_API_KEY"),
     LLM_MODEL: env("LLM_MODEL"),
+    OPENAI_BASE_URL: env("OPENAI_BASE_URL"),
+    OPENAI_API_KEY: env("OPENAI_API_KEY"),
+    OPENAI_MODEL: env("OPENAI_MODEL"),
   });
 }
 
@@ -81,6 +84,9 @@ export function contentLlmChain() {
     GEMINI_API_KEY: env("GEMINI_API_KEY"),
     ANTHROPIC_API_KEY: env("ANTHROPIC_API_KEY") ?? env("CLAUDE_API_KEY"),
     LLM_MODEL: env("LLM_MODEL"),
+    OPENAI_BASE_URL: env("OPENAI_BASE_URL"),
+    OPENAI_API_KEY: env("OPENAI_API_KEY"),
+    OPENAI_MODEL: env("OPENAI_MODEL"),
   });
 }
 
@@ -228,7 +234,9 @@ export async function buildSite(
   const llmChain = republish ? [] : contentLlmChain();
   let llmChoice: ReturnType<typeof contentLlm> = null;
   if (!llmChain.length && !republish) {
-    await log("no LLM key — deterministic copy (set GEMINI_API_KEY or ANTHROPIC_API_KEY)");
+    await log(
+      "no content LLM — deterministic copy (set Gemini, Anthropic, or OpenAI-compatible config)",
+    );
   }
   for (const choice of llmChain) {
     const polished = await polishSite(site, brief, choice.llm);

@@ -70,12 +70,49 @@ export function anthropicLlm(
   };
 }
 
-/** Pick a provider from available keys (Gemini first — free tier). */
-export function pickLlm(env: {
+/** OpenAI-compatible Chat Completions API (OpenAI, Ollama, LM Studio, etc.). */
+export function openAiCompatibleLlm(
+  baseUrl: string,
+  apiKey: string | undefined,
+  model: string,
+): LlmFn {
+  const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  return async (prompt: string) => {
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (apiKey) headers.authorization = `Bearer ${apiKey}`;
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model,
+        temperature: 0.7,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`OpenAI-compatible ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    }
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const text = data.choices?.[0]?.message?.content ?? "";
+    if (!text) throw new Error("OpenAI-compatible provider returned empty content");
+    return text;
+  };
+}
+
+export type LlmEnvironment = {
   GEMINI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   LLM_MODEL?: string;
-}): LlmChoice | null {
+  OPENAI_BASE_URL?: string;
+  OPENAI_API_KEY?: string;
+  OPENAI_MODEL?: string;
+};
+
+/** Pick a provider from available keys (Gemini first — free tier). */
+export function pickLlm(env: LlmEnvironment): LlmChoice | null {
   return pickLlms(env)[0] ?? null;
 }
 
@@ -85,11 +122,7 @@ export function pickLlm(env: {
  * failing mid-build (rate limit, outage) must not degrade the customer's
  * site to unpolished copy when another key is on hand.
  */
-export function pickLlms(env: {
-  GEMINI_API_KEY?: string;
-  ANTHROPIC_API_KEY?: string;
-  LLM_MODEL?: string;
-}): LlmChoice[] {
+export function pickLlms(env: LlmEnvironment): LlmChoice[] {
   const choices: LlmChoice[] = [];
   if (env.GEMINI_API_KEY) {
     choices.push({ name: "gemini", llm: geminiLlm(env.GEMINI_API_KEY, env.LLM_MODEL || undefined) });
@@ -97,6 +130,12 @@ export function pickLlms(env: {
   if (env.ANTHROPIC_API_KEY) {
     // LLM_MODEL is a Gemini override; Claude keeps its own default here.
     choices.push({ name: "anthropic", llm: anthropicLlm(env.ANTHROPIC_API_KEY) });
+  }
+  if (env.OPENAI_BASE_URL && env.OPENAI_MODEL) {
+    choices.push({
+      name: "openai-compatible",
+      llm: openAiCompatibleLlm(env.OPENAI_BASE_URL, env.OPENAI_API_KEY, env.OPENAI_MODEL),
+    });
   }
   return choices;
 }
